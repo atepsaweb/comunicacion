@@ -1,0 +1,62 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Builds
+.next/
+out/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Secrets
+*.pem
+*.key
+secrets/
+
+# Datos locales del runtime (no se versionan, viven en el VPS)
+data/
+backups/
+audio/
+
+# Caché
+.cache/
+.turbo/
+.eslintcache
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# n8n local data (los workflows sí se versionan en n8n/workflows/, el resto no)
+n8n/data/
+n8n/.cache/
+
+# Docker volumes locales
+**/postgres-data/
+**/evolution-instances/
+
+# Misc
+*.tsbuildinfo
+coverage/
+.nyc_output/

@@ -1,0 +1,14 @@
+# Forzar LF en todos los archivos de texto (el VPS es Linux)
+* text=auto eol=lf
+
+# Scripts de shell: siempre LF
+*.sh text eol=lf
+
+# Archivos binarios: sin conversión
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.ogg binary
+*.mp3 binary
+*.wav binary

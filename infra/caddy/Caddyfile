@@ -1,0 +1,18 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Panel web (Next.js — Fase 2)
+panel.atepsa.org.ar {
+	reverse_proxy web:3000
+}
+
+# n8n (Fase 1)
+n8n.atepsa.org.ar {
+	reverse_proxy n8n:5678
+}
+
+# Evolution API (Fase 1)
+evolution.atepsa.org.ar {
+	reverse_proxy evolution:8080
+}
