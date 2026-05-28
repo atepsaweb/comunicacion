@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 1** — siguiente. Fase 0 completada en Sesión 2 (2026-05-28).
+> **Fase 2** — siguiente. Fase 1 completada en Sesión 3 (2026-05-28).
 
 ---
 
@@ -41,18 +41,18 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ---
 
-## Fase 1 — Evolution API + bot mínimo
+## Fase 1 — WhatsApp bot + n8n mínimo ✅
 
-**Objetivo**: bot de WhatsApp recibe y envía mensajes, identifica usuarios por número.
+**Objetivo**: bot de WhatsApp recibe mensajes, llegan a n8n.
 
 **Tareas**:
-- [ ] Agregar Evolution API al `docker-compose.yml`.
-- [ ] Levantarlo, escanear QR con un número dedicado de ATEPSA (no el personal de Julián).
-- [ ] Configurar webhook hacia `https://n8n.atepsa.org.ar/webhook/whatsapp-inbound`.
-- [ ] Test manual: enviar "hola" desde otro número, ver que llega el webhook.
-- [ ] Esqueleto de n8n: workflow `inbound-message-handle` que solo logea por ahora.
+- [x] Agregar WAHA (whatsapp-web.js) al `docker-compose.yml` — Evolution API descartada (Baileys bloqueado por Meta).
+- [x] Levantarlo, escanear QR con número de prueba (Al Toque Padel, temporal hasta tener número dedicado ATEPSA).
+- [x] Configurar webhook hacia `https://n8n.atepsa.org.ar/webhook/whatsapp-inbound`.
+- [x] Test manual: mensajes entrantes confirmados en n8n Executions.
+- [x] Workflow `inbound-message-handle` importado y activo en n8n.
 
-**Criterio**: mensajes que mandás al número del bot quedan logueados en n8n.
+**Criterio**: ✅ mensajes que llegan al número del bot quedan logueados en n8n.
 
 **Dependencias**: Fase 0.
 
