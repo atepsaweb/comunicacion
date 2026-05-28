@@ -20,24 +20,24 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── WhatsApp bot (WPPConnect Server — Puppeteer/Chrome, no Baileys) ──────────
-  # Usa un Chrome real para conectar a WhatsApp Web → mucho menos detectable
-  # que Baileys (que reimplementa el protocolo de cero).
+  # ─── WhatsApp bot (WAHA — whatsapp-web.js + Chromium, no Baileys) ────────────
+  # WAHA usa Chromium real para conectar a WhatsApp Web → mucho menos
+  # detectable que Baileys (que reimplementa el protocolo de cero).
+  # Engine WEBJS = whatsapp-web.js; NOWEB sería como Baileys (evitar).
   wppconnect:
-    image: wppconnect/wppconnect-server:latest
+    image: devlikeapro/waha:latest
     container_name: atepsa-rep-wppconnect
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8081:21465"
+      - "127.0.0.1:8081:3000"
     volumes:
-      - wppconnect-tokens:/home/user/wppconnect-server/tokens
-      - wppconnect-userdata:/home/user/wppconnect-server/.wwebjs_auth
+      - wppconnect-sessions:/app/.sessions
     environment:
-      SERVER_SECRET_KEY: ${WPPCONNECT_SECRET_KEY}
-      SERVER_WEBHOOK_URL: https://n8n.atepsa.org.ar/webhook/whatsapp-inbound
-      SERVER_WEBHOOK_ALL_UNREAD_ON_START: "false"
-      SERVER_WEBHOOK_AUTO_DOWNLOAD: "true"
-      SERVER_LOG_LEVEL: error
+      WHATSAPP_DEFAULT_ENGINE: WEBJS
+      WHATSAPP_API_KEY: ${WPPCONNECT_SECRET_KEY}
+      WHATSAPP_HOOK_URL: https://n8n.atepsa.org.ar/webhook/whatsapp-inbound
+      WHATSAPP_HOOK_EVENTS: message,message.any,session.status
+      WAHA_LOG_LEVEL: error
       TZ: America/Argentina/Buenos_Aires
     networks:
       - atepsa-rep
@@ -79,8 +79,7 @@ services:
 
 volumes:
   postgres-data:
-  wppconnect-tokens:
-  wppconnect-userdata:
+  wppconnect-sessions:
   n8n-data:
 
 networks:
