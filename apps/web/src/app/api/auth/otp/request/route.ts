@@ -6,6 +6,7 @@ import { db } from '@/db';
 import { otpCodes, users } from '@/db/schema';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
+import { normalizeArgPhone } from '@/lib/utils';
 import { uuidv7 } from 'uuidv7';
 
 const OTP_TTL_SECONDS = 5 * 60; // 5 minutos
@@ -16,11 +17,16 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  let phone: string;
+  let rawPhone: string;
   try {
     const body = await req.json() as unknown;
-    ({ phone } = bodySchema.parse(body));
+    ({ phone: rawPhone } = bodySchema.parse(body));
   } catch {
+    return NextResponse.json({ error: 'Número inválido.' }, { status: 400 });
+  }
+
+  const phone = normalizeArgPhone(rawPhone);
+  if (!phone) {
     return NextResponse.json({ error: 'Número inválido.' }, { status: 400 });
   }
 

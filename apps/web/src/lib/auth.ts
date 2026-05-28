@@ -5,6 +5,7 @@ import { and, eq, gt, isNull, lt } from 'drizzle-orm';
 import { db } from '@/db';
 import { otpCodes, users } from '@/db/schema';
 import { logger } from './logger';
+import { normalizeArgPhone } from './utils';
 
 const MAX_OTP_ATTEMPTS = 3;
 
@@ -20,7 +21,8 @@ export const authOptions: NextAuthOptions = {
       async authorize(credentials): Promise<NextAuthUser | null> {
         if (!credentials?.phone || !credentials.code) return null;
 
-        const phone = credentials.phone.trim();
+        const phone = normalizeArgPhone(credentials.phone.trim());
+        if (!phone) return null;
         const code = credentials.code.trim();
 
         const now = new Date();
