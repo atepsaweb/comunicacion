@@ -16,7 +16,13 @@
       "Bash(unzip -q \"C:\\\\Users\\\\Usuario\\\\OneDrive\\\\Escritorio\\\\Atepsa 2\\\\Documentos\\\\COMUNICADO 11ABR25.docx\" -d comm1)",
       "mcp__Claude_in_Chrome__tabs_context_mcp",
       "WebFetch(domain:config.altoquepadel.com)",
-      "Bash(sshpass -p 'Atepsaweb583.' ssh -o StrictHostKeyChecking=no root@147.79.111.236 'docker --version 2>/dev/null || echo \"Docker NOT installed\"; docker compose version 2>/dev/null || echo \"Docker Compose NOT installed\"; systemctl is-active docker 2>/dev/null || echo \"Docker service not running\"; ls /opt/ 2>/dev/null; cat /etc/os-release | head -5')"
+      "Bash(sshpass -p 'Atepsaweb583.' ssh -o StrictHostKeyChecking=no root@147.79.111.236 'docker --version 2>/dev/null || echo \"Docker NOT installed\"; docker compose version 2>/dev/null || echo \"Docker Compose NOT installed\"; systemctl is-active docker 2>/dev/null || echo \"Docker service not running\"; ls /opt/ 2>/dev/null; cat /etc/os-release | head -5')",
+      "Bash(gh auth *)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "PowerShell(Resolve-DnsName atepsa.org.ar -Type NS 2>&1)"
     ]
   }
 }

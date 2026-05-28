@@ -1,9 +1,9 @@
 services:
 
-  # ─── Base de datos ────────────────────────────────────────────────────────────
+  # ─── Base de datos (sin puerto expuesto al host — solo red interna Docker) ────
   postgres:
     image: postgres:16-alpine
-    container_name: atepsa-postgres
+    container_name: atepsa-rep-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -13,47 +13,37 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     networks:
-      - internal
+      - atepsa-rep
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ─── Reverse proxy + HTTPS automático ────────────────────────────────────────
-  caddy:
-    image: caddy:2-alpine
-    container_name: atepsa-caddy
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    networks:
-      - internal
-      - external
-    environment:
-      - ACME_EMAIL=${ACME_EMAIL}
-    depends_on:
-      - postgres
-
   # ─── Servicios que se agregan en fases siguientes ────────────────────────────
-  # evolution:   Fase 1
-  # n8n:         Fase 1
-  # web:         Fase 2
-  # transcriber: Fase 3
+  # Nota: todos los puertos se exponen solo en 127.0.0.1 para que el nginx
+  # del host haga el proxy. Nunca exponer directamente al exterior.
+
+  # evolution (Fase 1):
+  #   ports: ["127.0.0.1:8081:8080"]
+  #   networks: [atepsa-rep]
+
+  # n8n (Fase 1):
+  #   ports: ["127.0.0.1:5678:5678"]
+  #   networks: [atepsa-rep]
+
+  # web / Next.js (Fase 2):
+  #   ports: ["127.0.0.1:3001:3000"]
+  #   networks: [atepsa-rep]
+
+  # transcriber / FastAPI (Fase 3):
+  #   networks: [atepsa-rep]   # sin puerto al host, solo interno
 
 volumes:
   postgres-data:
-  caddy-data:
-  caddy-config:
 
 networks:
-  internal:
-    driver: bridge
-  external:
+  # Red interna aislada — no se conecta con los containers de otros proyectos
+  atepsa-rep:
+    name: atepsa-rep
     driver: bridge

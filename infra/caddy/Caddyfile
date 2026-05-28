@@ -1,18 +1,5 @@
-{
-	email {$ACME_EMAIL}
-}
-
-# Panel web (Next.js — Fase 2)
-panel.atepsa.org.ar {
-	reverse_proxy web:3000
-}
-
-# n8n (Fase 1)
-n8n.atepsa.org.ar {
-	reverse_proxy n8n:5678
-}
-
-# Evolution API (Fase 1)
-evolution.atepsa.org.ar {
-	reverse_proxy evolution:8080
-}
+# OBSOLETO — Este archivo no se usa.
+#
+# El VPS ya tiene nginx corriendo con otros proyectos de ATEPSA.
+# Usamos nginx en lugar de Caddy para no interferir con lo existente.
+# Los configs de nginx están en infra/nginx/*.conf
