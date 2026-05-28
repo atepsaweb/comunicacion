@@ -1,0 +1,11 @@
+.next/
+out/
+node_modules/
+.pnpm-debug.log*
+.env
+.env.local
+.env.production.local
+.env.development.local
+build/
+.DS_Store
+*.tsbuildinfo

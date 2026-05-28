@@ -73,9 +73,31 @@ services:
       postgres:
         condition: service_healthy
 
-  # ─── Servicios que se agregan en fases siguientes ────────────────────────────
-  # web / Next.js (Fase 2):  ports: ["127.0.0.1:3001:3000"]
-  # transcriber / FastAPI (Fase 3): solo red interna, sin puerto al host
+  # ─── Panel web (Next.js) ─────────────────────────────────────────────────────
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    container_name: atepsa-rep-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3001:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      WAHA_URL: http://wppconnect:3000
+      WAHA_SESSION: default
+      TZ: America/Argentina/Buenos_Aires
+    networks:
+      - atepsa-rep
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Transcriber FastAPI (Fase 3) ─────────────────────────────────────────
+  # transcriber: solo red interna, sin puerto al host
 
 volumes:
   postgres-data:

@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-zinc-200;
+  }
+  body {
+    @apply bg-zinc-50 text-zinc-900 antialiased;
+  }
+}

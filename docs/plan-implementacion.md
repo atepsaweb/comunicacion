@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 2** — siguiente. Fase 1 completada en Sesión 3 (2026-05-28).
+> **Fase 3** — siguiente. Fase 2 completada en Sesión 4 (2026-05-28).
 
 ---
 
@@ -58,26 +58,25 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ---
 
-## Fase 2 — DB schema + Next.js skeleton + auth OTP
+## Fase 2 — DB schema + Next.js skeleton + auth OTP ✅
 
 **Objetivo**: la app está corriendo, los 27 cargados, podés loguearte por OTP.
 
 **Tareas**:
-- [ ] `apps/web/` con Next.js 14 (App Router), TypeScript estricto.
-- [ ] Drizzle ORM configurado contra Postgres.
-- [ ] Schema en `apps/web/src/db/schema/`: todas las tablas de `modelo-de-datos.md`.
-- [ ] Primera migración: `pnpm drizzle-kit generate` + `migrate`.
-- [ ] Seed script: carga los 27 secretarios desde un CSV que provee Julián.
-- [ ] Auth.js con provider Credentials custom (OTP).
-- [ ] Flujo OTP:
-  - `POST /api/auth/otp/request` → genera código, hashea, persiste en `otp_codes`, envía por WhatsApp vía endpoint interno.
-  - `POST /api/auth/otp/verify` → valida, marca consumed, crea sesión.
-- [ ] UI mínima:
-  - `/login` con form de teléfono → form de OTP.
-  - `/dashboard` con placeholder según rol.
-- [ ] Layout base con shadcn/ui (tema, sidebar, header).
-- [ ] Middleware de auth: redirige a login si no hay sesión.
-- [ ] Agregar la app al docker-compose como servicio `web`. Caddy proxy a `:3000`.
+- [x] `apps/web/` con Next.js 14 (App Router), TypeScript estricto.
+- [x] Drizzle ORM configurado contra Postgres.
+- [x] Schema en `apps/web/src/db/schema/`: todas las tablas de `modelo-de-datos.md`.
+- [ ] Primera migración: `pnpm db:generate` + `pnpm db:migrate` (correr en el VPS).
+- [ ] Seed script: `DATABASE_URL=... pnpm db:seed /opt/atepsa-reportes/data/secretarios.csv`
+- [x] NextAuth v4 con provider Credentials custom (OTP).
+- [x] Flujo OTP:
+  - `POST /api/auth/otp/request` → genera código, hashea, persiste en `otp_codes`, envía por WhatsApp.
+  - Verificación vía Credentials provider de NextAuth.
+- [x] UI mínima: `/login` con form de teléfono → form de OTP. `/dashboard` con placeholder según rol.
+- [x] Layout base con sidebar, header (shadcn/ui manual).
+- [x] Middleware de auth: redirige a login si no hay sesión.
+- [x] Servicio `web` en docker-compose, nginx proxy a `:3001`.
+- [ ] Deploy en VPS: `docker compose build web && docker compose up -d web`.
 
 **Criterio**: entrás a `https://panel.atepsa.org.ar/login`, metés tu número, recibís código por WhatsApp, entrás, ves dashboard vacío.
 
