@@ -20,62 +20,27 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── Cache / pub-sub (requerido por Evolution API para gestión de sesiones) ───
-  redis:
-    image: redis:7-alpine
-    container_name: atepsa-rep-redis
-    restart: unless-stopped
-    command: redis-server --save "" --appendonly no
-    networks:
-      - atepsa-rep
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ─── WhatsApp bot (Evolution API) ────────────────────────────────────────────
-  evolution:
-    image: atendai/evolution-api:v2.2.3
-    container_name: atepsa-rep-evolution
+  # ─── WhatsApp bot (WPPConnect Server — Puppeteer/Chrome, no Baileys) ──────────
+  # Usa un Chrome real para conectar a WhatsApp Web → mucho menos detectable
+  # que Baileys (que reimplementa el protocolo de cero).
+  wppconnect:
+    image: wppconnect/wppconnect-server:latest
+    container_name: atepsa-rep-wppconnect
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8081:8080"
+      - "127.0.0.1:8081:21465"
     volumes:
-      - evolution-instances:/evolution/instances
+      - wppconnect-tokens:/home/user/wppconnect-server/tokens
+      - wppconnect-userdata:/home/user/wppconnect-server/.wwebjs_auth
     environment:
-      SERVER_URL: https://evolution.atepsa.org.ar
-      AUTHENTICATION_TYPE: apikey
-      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
-      DATABASE_ENABLED: "true"
-      DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      DATABASE_CONNECTION_CLIENT_NAME: evolution_rep
-      DATABASE_SAVE_DATA_INSTANCE: "true"
-      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
-      DATABASE_SAVE_MESSAGE_UPDATE: "true"
-      DATABASE_SAVE_DATA_CONTACTS: "true"
-      DATABASE_SAVE_DATA_CHATS: "true"
-      DATABASE_SAVE_DATA_LABELS: "true"
-      DATABASE_SAVE_DATA_HISTORIC: "true"
-      CACHE_REDIS_ENABLED: "true"
-      CACHE_REDIS_URI: redis://redis:6379/1
-      CACHE_REDIS_PREFIX_KEY: evolution
-      CACHE_REDIS_SAVE_INSTANCES: "false"
-      CACHE_LOCAL_ENABLED: "false"
-      LOG_LEVEL: ERROR
-      DEL_INSTANCE: "false"
-      QRCODE_LIMIT: "30"
-      QRCODE_EXPIRATION_TIME: "45"
-      WEBHOOK_GLOBAL_ENABLED: "false"
+      SERVER_SECRET_KEY: ${WPPCONNECT_SECRET_KEY}
+      SERVER_WEBHOOK_URL: https://n8n.atepsa.org.ar/webhook/whatsapp-inbound
+      SERVER_WEBHOOK_ALL_UNREAD_ON_START: "false"
+      SERVER_WEBHOOK_AUTO_DOWNLOAD: "true"
+      SERVER_LOG_LEVEL: error
       TZ: America/Argentina/Buenos_Aires
     networks:
       - atepsa-rep
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
   # ─── Orquestador de workflows ─────────────────────────────────────────────────
   n8n:
@@ -114,7 +79,8 @@ services:
 
 volumes:
   postgres-data:
-  evolution-instances:
+  wppconnect-tokens:
+  wppconnect-userdata:
   n8n-data:
 
 networks:
