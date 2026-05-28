@@ -83,9 +83,9 @@ async function main() {
 
   for (const row of rows) {
     const rawPhone =
-      row['telefono'] ?? row['celular'] ?? row['phone'] ?? row['whatsapp'] ?? '';
+      row['phone_e164'] ?? row['telefono'] ?? row['celular'] ?? row['phone'] ?? row['whatsapp'] ?? '';
     const rawName =
-      row['nombre_completo'] ?? row['nombre'] ?? row['full_name'] ?? '';
+      row['full_name'] ?? row['nombre_completo'] ?? row['nombre'] ?? '';
 
     if (!rawPhone || !rawName) {
       console.warn(`  Fila sin teléfono o nombre: ${JSON.stringify(row)} — saltando.`);
