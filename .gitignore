@@ -56,6 +56,13 @@ n8n/.cache/
 **/postgres-data/
 **/evolution-instances/
 
+# Archivos de Office (pueden contener datos reales de afiliados)
+*.xlsx
+*.xls
+*.docx
+*.doc
+~$*
+
 # Misc
 *.tsbuildinfo
 coverage/
