@@ -1,0 +1,57 @@
+{
+  "name": "inbound-message-handle",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-inbound",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Webhook WhatsApp",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "whatsapp-inbound"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fase 1: solo logueamos el payload para verificar que llega.\n// En Fase 3 este nodo se expande para llamar al endpoint /api/internal/messages/inbound\nconst body = $input.first().json.body ?? $input.first().json;\nconsole.log('[inbound-message-handle] payload:', JSON.stringify(body, null, 2));\nreturn $input.all();"
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Log payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Responder 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook WhatsApp": {
+      "main": [
+        [{ "node": "Log payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Log payload": {
+      "main": [
+        [{ "node": "Responder 200", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "fase-1" }]
+}

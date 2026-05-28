@@ -20,27 +20,81 @@ services:
       timeout: 5s
       retries: 5
 
+  # ─── WhatsApp bot (Evolution API) ────────────────────────────────────────────
+  evolution:
+    image: atendai/evolution-api:v2.2.3
+    container_name: atepsa-rep-evolution
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - evolution-instances:/evolution/instances
+    environment:
+      SERVER_URL: https://evolution.atepsa.org.ar
+      AUTHENTICATION_TYPE: apikey
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      DATABASE_CONNECTION_CLIENT_NAME: evolution_rep
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      DATABASE_SAVE_DATA_CONTACTS: "true"
+      DATABASE_SAVE_DATA_CHATS: "true"
+      DATABASE_SAVE_DATA_LABELS: "true"
+      DATABASE_SAVE_DATA_HISTORIC: "true"
+      LOG_LEVEL: ERROR
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      QRCODE_EXPIRATION_TIME: "45"
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      TZ: America/Argentina/Buenos_Aires
+    networks:
+      - atepsa-rep
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Orquestador de workflows ─────────────────────────────────────────────────
+  n8n:
+    image: n8nio/n8n:1.93.0
+    container_name: atepsa-rep-n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - n8n-data:/home/node/.n8n
+    environment:
+      N8N_HOST: n8n.atepsa.org.ar
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.atepsa.org.ar/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_EDITOR_BASE_URL: https://n8n.atepsa.org.ar/
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_POSTGRESDB_SCHEMA: n8n
+      GENERIC_TIMEZONE: America/Argentina/Buenos_Aires
+      TZ: America/Argentina/Buenos_Aires
+    networks:
+      - atepsa-rep
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # ─── Servicios que se agregan en fases siguientes ────────────────────────────
-  # Nota: todos los puertos se exponen solo en 127.0.0.1 para que el nginx
-  # del host haga el proxy. Nunca exponer directamente al exterior.
-
-  # evolution (Fase 1):
-  #   ports: ["127.0.0.1:8081:8080"]
-  #   networks: [atepsa-rep]
-
-  # n8n (Fase 1):
-  #   ports: ["127.0.0.1:5678:5678"]
-  #   networks: [atepsa-rep]
-
-  # web / Next.js (Fase 2):
-  #   ports: ["127.0.0.1:3001:3000"]
-  #   networks: [atepsa-rep]
-
-  # transcriber / FastAPI (Fase 3):
-  #   networks: [atepsa-rep]   # sin puerto al host, solo interno
+  # web / Next.js (Fase 2):  ports: ["127.0.0.1:3001:3000"]
+  # transcriber / FastAPI (Fase 3): solo red interna, sin puerto al host
 
 volumes:
   postgres-data:
+  evolution-instances:
+  n8n-data:
 
 networks:
   # Red interna aislada — no se conecta con los containers de otros proyectos
