@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 0** — en progreso. Sesión 2: infra local lista, Docker en VPS, repo en GitHub. Bloqueado en DNS (pendiente Julián) y deploy key de GitHub (pendiente Julián).
+> **Fase 1** — siguiente. Fase 0 completada en Sesión 2 (2026-05-28).
 
 ---
 
@@ -25,15 +25,15 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 - [x] Crear repo en GitHub privado → `atepsaweb/comunicacion`.
 - [x] Hacer `git init` local, primer commit con todo este scaffolding.
 - [x] Confirmar specs del VPS: AlmaLinux 9.5, 2 cores, 7.5 GB RAM, 91 GB disco.
-- [ ] Apuntar subdominios al VPS: `panel.atepsa.org.ar`, `n8n.atepsa.org.ar`, `evolution.atepsa.org.ar`. **[pendiente: Julián en Hostinger]**
+- [x] Apuntar subdominios al VPS: `panel.atepsa.org.ar`, `n8n.atepsa.org.ar`, `evolution.atepsa.org.ar`.
 - [x] Instalar Docker 29.5.2 + Docker Compose v5.1.4 en el VPS.
 - [x] Crear `/opt/atepsa-reportes/` en el VPS.
-- [ ] Clonar el repo en `/opt/atepsa-reportes/`. **[pendiente: deploy key de GitHub]**
+- [x] Clonar el repo en `/opt/atepsa-reportes/repo/`.
 - [x] Crear `infra/docker-compose.yml` con postgres (sin Caddy — VPS tiene nginx compartido).
 - [x] Configs nginx en `infra/nginx/*.conf` para los 3 subdominios (reemplaza Caddyfile).
 - [x] `pg_dump` cron diario a las 3am + scripts backup.sh y restore.sh.
 - [x] `.env.example` con todas las variables del sistema.
-- [ ] Copiar nginx configs al VPS y obtener certs SSL con certbot. **[pendiente: DNS primero]**
+- [x] Copiar nginx configs al VPS y obtener certs SSL con certbot. Certs válidos hasta 2026-08-26, renovación automática activa.
 
 **Criterio de aceptación**: `docker compose up -d` levanta Postgres y Caddy. `https://panel.atepsa.org.ar` responde (aunque sea 502).
 
