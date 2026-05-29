@@ -70,18 +70,27 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
   const [isPending, startTransition] = useTransition();
   const [processing, setProcessing] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
+
+  // Estado publicaciones
+  const [publications, setPublications] = useState(initialPublications);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [editingPubId, setEditingPubId] = useState<string | null>(null);
+  const [editPubText, setEditPubText] = useState('');
+  const [savingPub, setSavingPub] = useState(false);
   const [actionPending, setActionPending] = useState<string | null>(null);
 
-  const [publications, setPublications] = useState(initialPublications);
+  // Estado consolidado
   const [consolidation, setConsolidation] = useState(initialConsolidation);
   const [showConsolidation, setShowConsolidation] = useState(false);
+  const [editingConsolidation, setEditingConsolidation] = useState(false);
+  const [editConsolidationText, setEditConsolidationText] = useState('');
+  const [savingConsolidation, setSavingConsolidation] = useState(false);
+  const [downloadingDocx, setDownloadingDocx] = useState(false);
 
   const canProcess = cycle.status === 'open' || cycle.status === 'closed' || cycle.status === 'processed';
   const hasProcessed = cycle.status === 'processed' || cycle.status === 'published';
+
+  // ─── Acciones de ciclo ──────────────────────────────────────────────────────
 
   async function handleProcess() {
     setProcessing(true);
@@ -90,7 +99,7 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
       const res = await fetch(`/api/cycles/${cycle.id}/process`, { method: 'POST' });
       if (!res.ok) {
         const data = await res.json();
-        setProcessError(data.error ?? 'Error al procesar el ciclo.');
+        setProcessError((data as { error?: string }).error ?? 'Error al procesar el ciclo.');
       } else {
         startTransition(() => router.refresh());
       }
@@ -100,6 +109,59 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
       setProcessing(false);
     }
   }
+
+  // ─── Acciones de consolidado ────────────────────────────────────────────────
+
+  function startEditConsolidation() {
+    setEditConsolidationText(consolidation?.summaryMd ?? '');
+    setEditingConsolidation(true);
+    setShowConsolidation(true);
+  }
+
+  async function handleSaveConsolidation() {
+    if (!consolidation) return;
+    setSavingConsolidation(true);
+    try {
+      const res = await fetch(`/api/consolidations/${consolidation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ internal_summary_md: editConsolidationText }),
+      });
+      if (res.ok) {
+        setConsolidation(prev => prev ? { ...prev, summaryMd: editConsolidationText } : prev);
+        setEditingConsolidation(false);
+      }
+    } finally {
+      setSavingConsolidation(false);
+    }
+  }
+
+  async function handleDownloadDocx() {
+    if (!consolidation) return;
+    setDownloadingDocx(true);
+    try {
+      const res = await fetch(`/api/consolidations/${consolidation.id}/export`);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const cycle_label = `semana-${cycle.isoWeek}-${cycle.year}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ATEPSA-${cycle_label}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingDocx(false);
+    }
+  }
+
+  function handlePrintPdf() {
+    window.print();
+  }
+
+  // ─── Acciones de publicaciones ──────────────────────────────────────────────
 
   async function handleApprove(pubId: string) {
     setActionPending(pubId + '-approve');
@@ -125,37 +187,37 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
     }
   }
 
-  function startEdit(pub: Publication) {
-    setEditingId(pub.id);
-    setEditText(pub.bodyMd ?? '');
+  function startEditPub(pub: Publication) {
+    setEditingPubId(pub.id);
+    setEditPubText(pub.bodyMd ?? '');
   }
 
-  async function handleSaveVersion(pubId: string) {
-    setSaving(true);
+  async function handleSavePubVersion(pubId: string) {
+    setSavingPub(true);
     try {
       const res = await fetch(`/api/publications/${pubId}/version`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body_md: editText }),
+        body: JSON.stringify({ body_md: editPubText }),
       });
       if (res.ok) {
-        setPublications(prev =>
-          prev.map(p => p.id === pubId ? { ...p, bodyMd: editText } : p),
-        );
-        setEditingId(null);
+        setPublications(prev => prev.map(p => p.id === pubId ? { ...p, bodyMd: editPubText } : p));
+        setEditingPubId(null);
       }
     } finally {
-      setSaving(false);
+      setSavingPub(false);
     }
   }
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   const startDate = new Date(cycle.startsAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'long' });
   const endDate = new Date(cycle.endsAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Encabezado */}
-      <div className="flex items-start justify-between">
+    <div className="space-y-6 max-w-4xl print:max-w-full">
+      {/* Encabezado — oculto en impresión */}
+      <div className="flex items-start justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Revisión</h1>
           <p className="text-zinc-500 mt-1 text-sm">
@@ -166,7 +228,6 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
           </p>
         </div>
 
-        {/* Botón procesar */}
         {canProcess && (
           <button
             onClick={handleProcess}
@@ -179,42 +240,92 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
       </div>
 
       {processError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 print:hidden">
           {processError}
         </div>
       )}
 
       {processing && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-          Generando consolidado y drafts con IA. Esto puede tardar 30-60 segundos…
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 print:hidden">
+          Generando consolidado y drafts con IA. Esto puede tardar 60-90 segundos…
         </div>
       )}
 
-      {/* Consolidación interna */}
+      {/* ── Consolidado interno ─────────────────────────────────────────────── */}
       {consolidation && (
         <Card>
           <CardContent className="py-4 px-5 space-y-3">
-            <div className="flex items-center justify-between">
+            {/* Header */}
+            <div className="flex items-center justify-between print:hidden">
               <h2 className="font-semibold text-zinc-900 text-sm">Consolidado interno</h2>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <span className="text-xs text-zinc-400">
                   {new Date(consolidation.generatedAt).toLocaleString('es-AR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
+                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
                   })}
                 </span>
-                <button
-                  onClick={() => setShowConsolidation(!showConsolidation)}
-                  className="text-xs text-zinc-500 hover:text-zinc-800 underline underline-offset-2"
-                >
-                  {showConsolidation ? 'Ocultar' : 'Ver'}
-                </button>
+
+                {!editingConsolidation && (
+                  <>
+                    <button
+                      onClick={() => setShowConsolidation(!showConsolidation)}
+                      className="text-xs text-zinc-500 hover:text-zinc-800 underline underline-offset-2"
+                    >
+                      {showConsolidation ? 'Ocultar' : 'Ver'}
+                    </button>
+                    {showConsolidation && (
+                      <button
+                        onClick={startEditConsolidation}
+                        className="text-xs text-zinc-500 hover:text-zinc-800 underline underline-offset-2"
+                      >
+                        Editar
+                      </button>
+                    )}
+                    <button
+                      onClick={handleDownloadDocx}
+                      disabled={downloadingDocx}
+                      className="text-xs px-2.5 py-1 bg-zinc-800 text-white rounded hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+                    >
+                      {downloadingDocx ? 'Generando…' : '⬇ Descargar .docx'}
+                    </button>
+                    <button
+                      onClick={handlePrintPdf}
+                      className="text-xs px-2.5 py-1 bg-white border border-zinc-300 text-zinc-700 rounded hover:bg-zinc-50 transition-colors"
+                    >
+                      🖨 Imprimir / PDF
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-            {showConsolidation && (
-              <pre className="text-xs text-zinc-700 whitespace-pre-wrap font-sans leading-relaxed bg-zinc-50 rounded-md p-4 max-h-[500px] overflow-auto">
+
+            {/* Contenido del consolidado */}
+            {editingConsolidation ? (
+              <div className="space-y-3">
+                <textarea
+                  value={editConsolidationText}
+                  onChange={e => setEditConsolidationText(e.target.value)}
+                  rows={20}
+                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-800 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSaveConsolidation}
+                    disabled={savingConsolidation}
+                    className="px-3 py-1.5 bg-zinc-900 text-white text-xs font-medium rounded hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+                  >
+                    {savingConsolidation ? 'Guardando…' : 'Guardar'}
+                  </button>
+                  <button
+                    onClick={() => setEditingConsolidation(false)}
+                    className="px-3 py-1.5 text-zinc-500 text-xs hover:text-zinc-800 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : showConsolidation && (
+              <pre className="text-xs text-zinc-700 whitespace-pre-wrap font-sans leading-relaxed bg-zinc-50 rounded-md p-4 max-h-[600px] overflow-auto print:max-h-none print:overflow-visible print:bg-white print:p-0 print:text-sm">
                 {consolidation.summaryMd}
               </pre>
             )}
@@ -222,31 +333,29 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
         </Card>
       )}
 
-      {/* Sin consolidación todavía */}
+      {/* Sin consolidación */}
       {!consolidation && (
-        <Card className="border-dashed">
+        <Card className="border-dashed print:hidden">
           <CardContent className="py-8 text-center">
             <p className="text-zinc-400 text-sm">
-              {cycle.status === 'open'
-                ? 'El ciclo está abierto. Hacé clic en "Procesar ciclo" para generar el consolidado y los drafts.'
-                : cycle.status === 'closed'
-                ? 'El ciclo está cerrado. Hacé clic en "Procesar ciclo" para generar el consolidado y los drafts.'
+              {cycle.status === 'open' || cycle.status === 'closed'
+                ? 'Hacé clic en "Procesar ciclo" para generar el consolidado y los drafts.'
                 : 'No hay consolidado generado todavía.'}
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Publicaciones */}
+      {/* ── Publicaciones ───────────────────────────────────────────────────── */}
       {publications.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-4 print:hidden">
           <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">
             Borradores de publicación
           </h2>
           {publications.map(pub => (
             <Card key={pub.id}>
               <CardContent className="py-4 px-5 space-y-3">
-                {/* Header de la publicación */}
+                {/* Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <h3 className="font-medium text-zinc-900 text-sm">
@@ -262,7 +371,7 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
                     onClick={() => {
                       if (expandedId === pub.id) {
                         setExpandedId(null);
-                        setEditingId(null);
+                        setEditingPubId(null);
                       } else {
                         setExpandedId(pub.id);
                       }
@@ -276,24 +385,24 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
                 {/* Contenido expandido */}
                 {expandedId === pub.id && (
                   <div className="space-y-3 pt-1">
-                    {editingId === pub.id ? (
+                    {editingPubId === pub.id ? (
                       <>
                         <textarea
-                          value={editText}
-                          onChange={e => setEditText(e.target.value)}
+                          value={editPubText}
+                          onChange={e => setEditPubText(e.target.value)}
                           rows={12}
                           className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-800 font-mono resize-y focus:outline-none focus:ring-2 focus:ring-zinc-400"
                         />
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleSaveVersion(pub.id)}
-                            disabled={saving}
+                            onClick={() => handleSavePubVersion(pub.id)}
+                            disabled={savingPub}
                             className="px-3 py-1.5 bg-zinc-900 text-white text-xs font-medium rounded hover:bg-zinc-700 disabled:opacity-50 transition-colors"
                           >
-                            {saving ? 'Guardando…' : 'Guardar versión'}
+                            {savingPub ? 'Guardando…' : 'Guardar versión'}
                           </button>
                           <button
-                            onClick={() => setEditingId(null)}
+                            onClick={() => setEditingPubId(null)}
                             className="px-3 py-1.5 text-zinc-500 text-xs hover:text-zinc-800 transition-colors"
                           >
                             Cancelar
@@ -306,7 +415,7 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
                           {pub.bodyMd ?? '(sin contenido)'}
                         </pre>
                         <button
-                          onClick={() => startEdit(pub)}
+                          onClick={() => startEditPub(pub)}
                           className="text-xs text-zinc-500 hover:text-zinc-800 underline underline-offset-2"
                         >
                           Editar
@@ -314,8 +423,8 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
                       </>
                     )}
 
-                    {/* Acciones de aprobación */}
-                    {pub.status !== 'approved' && pub.status !== 'discarded' && editingId !== pub.id && (
+                    {/* Botones aprobar/descartar */}
+                    {pub.status !== 'approved' && pub.status !== 'discarded' && editingPubId !== pub.id && (
                       <div className="flex items-center gap-2 pt-1 border-t border-zinc-100">
                         <button
                           onClick={() => handleApprove(pub.id)}
@@ -327,7 +436,7 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
                         <button
                           onClick={() => handleDiscard(pub.id)}
                           disabled={actionPending !== null}
-                          className="px-3 py-1.5 bg-white border border-zinc-300 text-zinc-600 text-xs font-medium rounded hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+                          className="px-3 py-1 bg-white border border-zinc-300 text-zinc-600 text-xs font-medium rounded hover:bg-zinc-50 disabled:opacity-50 transition-colors"
                         >
                           {actionPending === pub.id + '-discard' ? 'Descartando…' : 'Descartar'}
                         </button>
@@ -352,9 +461,8 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
         </div>
       )}
 
-      {/* Estado sin publicaciones pero con ciclo procesado */}
       {publications.length === 0 && hasProcessed && (
-        <Card className="border-dashed">
+        <Card className="border-dashed print:hidden">
           <CardContent className="py-8 text-center">
             <p className="text-zinc-400 text-sm">No se generaron publicaciones. Probá &ldquo;Reprocesar ciclo&rdquo;.</p>
           </CardContent>
