@@ -13,8 +13,8 @@ export default withAuth(
 );
 
 export const config = {
-  // Proteger todo excepto login, api/auth y assets estáticos
+  // Proteger todo excepto login, api/auth, api/internal (usa shared secret propio) y assets estáticos
   matcher: [
-    '/((?!login|api/auth|_next/static|_next/image|favicon.ico).*)',
+    '/((?!login|api/auth|api/internal|_next/static|_next/image|favicon.ico).*)',
   ],
 };
