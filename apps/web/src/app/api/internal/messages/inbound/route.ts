@@ -3,7 +3,7 @@ import { eq, or, desc } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
-import { downloadWahaMedia } from '@/lib/waha-media';
+import { downloadWahaMedia, resolveWahaPhone } from '@/lib/waha-media';
 import { logger } from '@/lib/logger';
 
 // Payload que WAHA envía al webhook (subset relevante)
@@ -52,7 +52,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ discarded: true, reason: 'non_message_event' });
   }
 
-  const fromPhone = normalizeE164(payload.from);
+  // WhatsApp multi-device puede enviar from como LID (@lid) en vez de @c.us
+  let fromPhone = normalizeE164(payload.from);
+  if (payload.from.endsWith('@lid')) {
+    const resolved = await resolveWahaPhone(payload.from);
+    if (resolved) fromPhone = resolved;
+  }
   const receivedAt = new Date(payload.timestamp * 1000);
   const kind = resolveKind(payload.type, payload.hasMedia);
 

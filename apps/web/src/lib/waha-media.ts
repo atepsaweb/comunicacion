@@ -6,6 +6,23 @@ const WAHA_URL = process.env.WAHA_URL ?? 'http://wppconnect:3000';
 const WAHA_API_KEY = process.env.WPPCONNECT_SECRET_KEY ?? '';
 const WAHA_SESSION = process.env.WAHA_SESSION ?? 'default';
 
+/**
+ * Resuelve un JID @lid al número E.164 real consultando la API de WAHA.
+ * WhatsApp multi-device puede enviar `from` como LID en vez de @c.us.
+ * Retorna null si no puede resolver.
+ */
+export async function resolveWahaPhone(jid: string): Promise<string | null> {
+  try {
+    const url = `${WAHA_URL}/api/${WAHA_SESSION}/contacts/${encodeURIComponent(jid)}`;
+    const res = await fetch(url, { headers: { 'X-Api-Key': WAHA_API_KEY } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { number?: string };
+    return data.number ? `+${data.number}` : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Descarga media de WAHA y la guarda en destPath. */
 export async function downloadWahaMedia(messageId: string, destPath: string): Promise<void> {
   const url = `${WAHA_URL}/api/${WAHA_SESSION}/messages/${encodeURIComponent(messageId)}/download`;
