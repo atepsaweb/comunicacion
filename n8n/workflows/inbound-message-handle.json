@@ -83,6 +83,12 @@
               "leftValue": "={{ $json.kind }}",
               "rightValue": "audio",
               "operator": { "type": "string", "operation": "equals" }
+            },
+            {
+              "id": "cond-path",
+              "leftValue": "={{ $json.audioPath }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
             }
           ],
           "combinator": "and"
