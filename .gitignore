@@ -63,6 +63,9 @@ n8n/.cache/
 *.doc
 ~$*
 
+# Scripts de deploy (tienen credenciales hardcodeadas)
+scripts/
+
 # Misc
 *.tsbuildinfo
 coverage/
