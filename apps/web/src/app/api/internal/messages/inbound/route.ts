@@ -19,7 +19,9 @@ type WahaWebhookPayload = {
     body?: string | null;
     hasMedia?: boolean;
     mediaUrl?: string | null;
-    type?: string;
+    type?: string | null;
+    // WEBJS puede omitir `type` en el nivel superior; el tipo real está en _data
+    _data?: { type?: string | null };
   };
 };
 
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (resolved) fromPhone = resolved;
   }
   const receivedAt = new Date(payload.timestamp * 1000);
-  const kind = resolveKind(payload.type, payload.hasMedia);
+  const kind = resolveKind(payload.type ?? payload._data?.type ?? undefined, payload.hasMedia);
 
   const user = await db.query.users.findFirst({
     where: eq(schema.users.phone_e164, fromPhone),
