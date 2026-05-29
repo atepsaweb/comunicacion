@@ -42,11 +42,11 @@
       "position": [680, 300],
       "parameters": {
         "method": "POST",
-        "url": "={{ $json.baseUrl + '/api/internal/messages/inbound' }}",
+        "url": "={{ $('Context').item.json.baseUrl + '/api/internal/messages/inbound' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "Authorization", "value": "={{ 'Bearer ' + $json.internalApiKey }}" }
+            { "name": "Authorization", "value": "={{ 'Bearer ' + $('Context').item.json.internalApiKey }}" }
           ]
         },
         "sendBody": true,
