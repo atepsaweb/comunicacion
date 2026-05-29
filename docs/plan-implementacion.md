@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 3** — en curso. Implementación iniciada en Sesión 5 (2026-05-29).
+> **Fase 4** — pendiente. Fase 3 completada en Sesión 5 (2026-05-29).
 
 ---
 
