@@ -9,7 +9,23 @@ import { normalizeArgPhone } from './utils';
 
 const MAX_OTP_ATTEMPTS = 3;
 
+// En producción (HTTPS) las cookies requieren el prefijo __Secure-
+const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith('https://') ?? false;
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 días en segundos
+
 export const authOptions: NextAuthOptions = {
+  cookies: {
+    sessionToken: {
+      name: `${useSecureCookies ? '__Secure-' : ''}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax' as const,
+        path: '/',
+        secure: useSecureCookies,
+        maxAge: SESSION_MAX_AGE,
+      },
+    },
+  },
   providers: [
     CredentialsProvider({
       id: 'otp',
@@ -92,7 +108,8 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 días
+    maxAge: SESSION_MAX_AGE,
+    updateAge: 24 * 60 * 60, // renovar el token si la sesión tiene más de 24h
   },
 
   callbacks: {
