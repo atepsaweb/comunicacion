@@ -52,7 +52,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!payload || payload.fromMe) {
     return NextResponse.json({ discarded: true, reason: 'not_inbound_message' });
   }
-  if (event && !['message', 'message.any'].includes(event)) {
+  // Solo procesar event "message" (inbound); "message.any" duplica por incluir enviados y recibidos
+  if (event !== 'message') {
     return NextResponse.json({ discarded: true, reason: 'non_message_event' });
   }
 
