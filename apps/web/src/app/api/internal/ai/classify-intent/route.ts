@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const msg = await db.query.inboundMessages.findFirst({
     where: eq(schema.inboundMessages.id, messageId),
-    columns: { id: true, kind: true, text_content: true, cycle_id: true },
+    columns: { id: true, kind: true, text_content: true, cycle_id: true, user_id: true },
   });
 
   if (!msg) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
@@ -49,11 +49,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'No text to classify' }, { status: 422 });
   }
 
+  // Detectar si hay un reporte awaiting_followup para este usuario/ciclo
+  let hasAwaitingFollowup = false;
+  if (msg.user_id && msg.cycle_id) {
+    const pendingReport = await db.query.reports.findFirst({
+      where: and(
+        eq(schema.reports.user_id, msg.user_id),
+        eq(schema.reports.cycle_id, msg.cycle_id),
+        eq(schema.reports.status, 'awaiting_followup'),
+      ),
+      columns: { id: true },
+    });
+    hasAwaitingFollowup = !!pendingReport;
+  }
+
   const result = await callAI({
     purpose: 'classify_intent',
     model: CLASSIFY_INTENT_MODEL,
     systemBlocks: [{ text: CLASSIFY_INTENT_SYSTEM, cache: true }],
-    userContent: buildClassifyIntentPrompt(text),
+    userContent: buildClassifyIntentPrompt(text, hasAwaitingFollowup),
     relatedCycleId: msg.cycle_id ?? undefined,
   });
 
@@ -70,7 +84,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .set({ intent: parsed.intent })
     .where(eq(schema.inboundMessages.id, messageId));
 
-  logger.info({ messageId, intent: parsed.intent, confidence: parsed.confidence }, 'intent classified');
+  logger.info(
+    { messageId, intent: parsed.intent, confidence: parsed.confidence, hasAwaitingFollowup },
+    'intent classified',
+  );
 
   return NextResponse.json({ messageId, intent: parsed.intent, confidence: parsed.confidence });
 }

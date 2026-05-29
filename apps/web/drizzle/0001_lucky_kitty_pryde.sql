@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ai_purpose" ADD VALUE 'assess_completeness' BEFORE 'followup_question';

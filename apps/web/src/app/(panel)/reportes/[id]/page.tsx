@@ -37,6 +37,7 @@ export default async function ReporteDetailPage({ params }: Props) {
       cycle_id: true,
       status: true,
       completeness_score: true,
+      followup_count: true,
       first_message_at: true,
       last_message_at: true,
     },
@@ -111,6 +112,18 @@ export default async function ReporteDetailPage({ params }: Props) {
         )}
       </div>
 
+      {/* Banner awaiting_followup */}
+      {report.status === 'awaiting_followup' && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          El sistema te envió una pregunta de seguimiento por WhatsApp. Cuando respondas, tu reporte se actualizará automáticamente.
+          {report.followup_count > 0 && (
+            <span className="ml-2 text-xs text-amber-600">
+              (pregunta {report.followup_count} de 2)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Métricas */}
       {score != null && (
         <div className="flex items-center gap-6 text-sm">
@@ -128,6 +141,12 @@ export default async function ReporteDetailPage({ params }: Props) {
             <p className="text-zinc-400 text-xs">Ítems</p>
             <p className="font-semibold text-zinc-800">{items.length}</p>
           </div>
+          {report.followup_count > 0 && (
+            <div>
+              <p className="text-zinc-400 text-xs">Repreguntas</p>
+              <p className="font-semibold text-zinc-800">{report.followup_count}/2</p>
+            </div>
+          )}
           {report.last_message_at && (
             <div>
               <p className="text-zinc-400 text-xs">Último mensaje</p>

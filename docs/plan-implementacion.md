@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 5** — pendiente. Fase 4 completada en Sesión 6 (2026-05-29).
+> **Fase 6** — pendiente. Fase 5 completada en Sesión 7 (2026-05-29).
 
 ---
 
@@ -143,12 +143,12 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 **Objetivo**: si el reporte está incompleto, el bot repregunta.
 
 **Tareas**:
-- [ ] Endpoint `POST /api/internal/ai/assess-completeness`.
-- [ ] Endpoint `POST /api/internal/ai/followup-question`.
-- [ ] Lógica de límite: máximo 2 repreguntas por reporte por ciclo.
-- [ ] Workflow `inbound-message-handle` extendido: si needs_followup y bajo límite → genera y envía pregunta, marca `report.status='awaiting_followup'`.
-- [ ] Cuando llega una respuesta y el reporte está en `awaiting_followup`, se trata como `report_followup_reply` y se mergea.
-- [ ] UI: en el detalle del reporte, mostrar el hilo de repreguntas.
+- [x] Endpoint `POST /api/internal/ai/assess-completeness`.
+- [x] Endpoint `POST /api/internal/ai/followup-question`.
+- [x] Lógica de límite: máximo 2 repreguntas por reporte por ciclo.
+- [x] Workflow `inbound-message-handle` extendido: si needs_followup y bajo límite → genera y envía pregunta, marca `report.status='awaiting_followup'`.
+- [x] Cuando llega una respuesta y el reporte está en `awaiting_followup`, se trata como `report_followup_reply` y se mergea.
+- [x] UI: en el detalle del reporte, mostrar indicador de seguimiento y contador de repreguntas.
 
 **Criterio**: mandás un reporte escueto ("hablé con EANA"), el bot pregunta "¿cómo salió?", respondés, se incorpora al reporte.
 

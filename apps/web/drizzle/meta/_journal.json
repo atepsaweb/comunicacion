@@ -8,6 +8,13 @@
       "when": 1779990063610,
       "tag": "0000_ambiguous_rogue",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780072565984,
+      "tag": "0001_lucky_kitty_pryde",
+      "breakpoints": true
     }
   ]
 }

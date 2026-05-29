@@ -84,6 +84,7 @@ export const consolidationStatusEnum = pgEnum('consolidation_status', [
 
 export const aiPurposeEnum = pgEnum('ai_purpose', [
   'extract',
+  'assess_completeness',
   'followup_question',
   'consolidate',
   'draft_social',

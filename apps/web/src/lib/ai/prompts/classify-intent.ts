@@ -12,8 +12,11 @@ Respondé únicamente con JSON válido, sin texto extra antes ni después:
 
 export const CLASSIFY_INTENT_MODEL = 'claude-haiku-4-5-20251001';
 
-export function buildClassifyIntentPrompt(messageText: string): string {
-  return `Clasificá este mensaje de un secretario gremial:\n\n"${messageText}"`;
+export function buildClassifyIntentPrompt(messageText: string, hasAwaitingFollowup?: boolean): string {
+  const context = hasAwaitingFollowup
+    ? '\n\n[CONTEXTO: El bot le hizo una pregunta de seguimiento a este secretario sobre su reporte. Es probable que este mensaje sea una respuesta a esa pregunta.]'
+    : '';
+  return `Clasificá este mensaje de un secretario gremial:${context}\n\n"${messageText}"`;
 }
 
 export type ClassifyIntentOutput = {
