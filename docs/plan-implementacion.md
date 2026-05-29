@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 6** — pendiente. Fase 5 completada en Sesión 7 (2026-05-29).
+> **Fase 6** — pendiente (saltada). **Fase 7** completada en Sesión 8 (2026-05-29). Fase 8 es la próxima.
 
 ---
 
@@ -178,22 +178,22 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ---
 
-## Fase 7 — Consolidación + drafts + revisión
+## Fase 7 — Consolidación + drafts + revisión ✅
 
 **Objetivo**: el viernes 19 el sistema genera los outputs; sábado Julián los revisa en el panel; lunes salen.
 
 **Tareas**:
-- [ ] Endpoint `POST /api/internal/ai/consolidate`.
-- [ ] Endpoint `POST /api/internal/ai/draft-publication?kind=...`.
-- [ ] Workflow `weekly-process` (viernes 19:00).
-- [ ] UI bandeja `/revision`:
-  - Lista de publicaciones del ciclo activo.
-  - Detalle con editor (markdown / textarea simple primero, después mejoramos).
-  - Botones: "guardar versión", "aprobar", "descartar".
-  - Cuando aprobás, marca `status='approved'`.
-- [ ] Endpoint `POST /api/internal/publications/:id/approve` y `:id/discard`.
-- [ ] Workflow `weekly-delivery-send` (lunes 08:00).
-- [ ] UI lectura del consolidado: `/cycles/[id]` (accesible a todos los users).
+- [x] Endpoint `POST /api/internal/cycles/:id/close`.
+- [x] Endpoint `GET /api/internal/cycles/current` (bonus — para n8n y Fase 6).
+- [x] Endpoint `POST /api/internal/ai/consolidate` (Sonnet 4.6, firmado por autor).
+- [x] Endpoint `POST /api/internal/ai/draft-publication?kind=...` (instagram/x/newsletter).
+- [x] Endpoint `POST /api/cycles/:id/process` (orquestador para el botón UI).
+- [x] Workflow `weekly-process` exportado en `n8n/workflows/weekly-process.json` (disparo manual por ahora).
+- [x] UI bandeja `/revision`: consolidado + lista de publicaciones + editor + aprobar/descartar.
+- [x] Endpoint `POST /api/publications/:id/approve` y `:id/discard`.
+- [x] Endpoint `POST /api/publications/:id/version` (guardar versión editada).
+- [ ] Workflow `weekly-delivery-send` (lunes 08:00) — pendiente, necesita Fase 6.
+- [ ] UI lectura del consolidado: `/cycles/[id]` — pendiente.
 
 **Criterio**: el sábado entrás al panel, ves el consolidado + 3 drafts, editás uno, los aprobás. El lunes los 27 reciben el consolidado por WhatsApp.
 
