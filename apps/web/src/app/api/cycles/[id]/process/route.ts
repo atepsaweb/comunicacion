@@ -14,7 +14,8 @@ import { logger } from '@/lib/logger';
 // Llama a los endpoints internos via fetch interno (Docker: http://web:3000 en prod,
 // pero como corre en el mismo proceso Next.js, usamos las funciones directamente).
 
-const BASE = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
+// Desde dentro del container, localhost:3000 es más directo que pasar por nginx
+const BASE = process.env.INTERNAL_BASE_URL ?? 'http://localhost:3000';
 const SECRET = process.env.INTERNAL_API_SECRET ?? '';
 
 async function internalPost(path: string, body: unknown): Promise<{ ok: boolean; data: unknown }> {
