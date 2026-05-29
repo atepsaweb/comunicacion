@@ -22,6 +22,8 @@ type WahaWebhookPayload = {
     type?: string | null;
     // WEBJS puede omitir `type` en el nivel superior; el tipo real está en _data
     _data?: { type?: string | null };
+    // WAHA con WHATSAPP_DOWNLOAD_MEDIA descarga el archivo y lo expone aquí
+    media?: { url?: string; mimetype?: string; filename?: string | null } | null;
   };
 };
 
@@ -107,7 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const cycleSegment = cycle?.id ?? 'uncycled';
     const destPath = `/data/audio/inbound/${cycleSegment}/${user.id}/${payload.id}.ogg`;
     try {
-      await downloadWahaMedia(payload.id, destPath);
+      await downloadWahaMedia(payload.id, destPath, payload.media?.url ?? undefined);
       audioPath = destPath;
     } catch (err) {
       logger.error({ err, waMessageId: payload.id }, 'audio download failed — persisting without path');

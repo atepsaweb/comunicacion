@@ -23,9 +23,21 @@ export async function resolveWahaPhone(jid: string): Promise<string | null> {
   }
 }
 
-/** Descarga media de WAHA y la guarda en destPath. */
-export async function downloadWahaMedia(messageId: string, destPath: string): Promise<void> {
-  const url = `${WAHA_URL}/api/${WAHA_SESSION}/messages/${encodeURIComponent(messageId)}/download`;
+/**
+ * Descarga media de WAHA y la guarda en destPath.
+ * Si se provee mediaUrl (del campo payload.media.url del webhook), la usa directamente
+ * reemplazando el host localhost por WAHA_URL. Si no, usa el endpoint de mensajes.
+ */
+export async function downloadWahaMedia(
+  messageId: string,
+  destPath: string,
+  mediaUrl?: string,
+): Promise<void> {
+  // WAHA puede incluir la URL del archivo ya descargado en payload.media.url
+  // pero con host localhost:3000 → reemplazar por WAHA_URL
+  const url = mediaUrl
+    ? mediaUrl.replace(/^https?:\/\/localhost(:\d+)?/, WAHA_URL)
+    : `${WAHA_URL}/api/${WAHA_SESSION}/messages/${encodeURIComponent(messageId)}/download`;
 
   const res = await fetch(url, {
     headers: { 'X-Api-Key': WAHA_API_KEY },
