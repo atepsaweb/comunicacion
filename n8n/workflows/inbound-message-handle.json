@@ -2,57 +2,157 @@
   "name": "inbound-message-handle",
   "nodes": [
     {
+      "id": "node-webhook",
+      "name": "Webhook WAHA",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "whatsapp-inbound",
       "parameters": {
         "httpMethod": "POST",
         "path": "whatsapp-inbound",
         "responseMode": "responseNode",
         "options": {}
-      },
-      "id": "a1b2c3d4-0001-0001-0001-000000000001",
-      "name": "Webhook WhatsApp",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [240, 300],
-      "webhookId": "whatsapp-inbound"
+      }
     },
     {
+      "id": "node-context",
+      "name": "Context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [460, 300],
       "parameters": {
-        "jsCode": "// Fase 1: solo logueamos el payload para verificar que llega.\n// En Fase 3 este nodo se expande para llamar al endpoint /api/internal/messages/inbound\nconst body = $input.first().json.body ?? $input.first().json;\nconsole.log('[inbound-message-handle] payload:', JSON.stringify(body, null, 2));\nreturn $input.all();"
-      },
-      "id": "a1b2c3d4-0002-0002-0002-000000000002",
-      "name": "Log payload",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [460, 300]
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            { "id": "ctx-base-url", "name": "baseUrl", "value": "http://web:3000", "type": "string" },
+            { "id": "ctx-api-key", "name": "internalApiKey", "value": "={{ $env.INTERNAL_API_SECRET }}", "type": "string" }
+          ]
+        },
+        "options": { "includeBinaryData": false }
+      }
     },
     {
+      "id": "node-inbound",
+      "name": "POST inbound",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300],
       "parameters": {
-        "respondWith": "json",
-        "responseBody": "={ \"ok\": true }",
+        "method": "POST",
+        "url": "={{ $json.baseUrl }}/api/internal/messages/inbound",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.internalApiKey }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": { "mode": "raw", "rawBody": "={{ JSON.stringify($('Webhook WAHA').item.json) }}" },
+        "options": { "timeout": 30000 }
+      }
+    },
+    {
+      "id": "node-check-discarded",
+      "name": "Descartado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            { "id": "cond-discarded", "leftValue": "={{ $json.discarded }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
         "options": {}
-      },
-      "id": "a1b2c3d4-0003-0003-0003-000000000003",
-      "name": "Responder 200",
+      }
+    },
+    {
+      "id": "node-respond-ok",
+      "name": "Respond 200",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [680, 300]
+      "position": [1120, 160],
+      "parameters": { "respondWith": "json", "responseBody": "={ \"ok\": true }", "options": { "responseCode": 200 } }
+    },
+    {
+      "id": "node-check-audio",
+      "name": "Es audio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 440],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            { "id": "cond-audio", "leftValue": "={{ $json.kind }}", "rightValue": "audio", "operator": { "type": "string", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-transcribe",
+      "name": "POST transcriber",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1340, 340],
+      "parameters": {
+        "method": "POST",
+        "url": "http://transcriber:8000/transcribe",
+        "sendBody": true,
+        "contentType": "json",
+        "body": { "mode": "raw", "rawBody": "={{ JSON.stringify({ path: $('POST inbound').item.json.audioPath }) }}" },
+        "options": { "timeout": 180000 }
+      }
+    },
+    {
+      "id": "node-attach",
+      "name": "POST attach-transcription",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1560, 340],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Context').item.json.baseUrl }}/api/internal/messages/{{ $('POST inbound').item.json.id }}/attach-transcription",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Context').item.json.internalApiKey }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": { "mode": "raw", "rawBody": "={{ JSON.stringify({ text: $json.text, duration_sec: $json.duration_sec, model: $json.model }) }}" },
+        "options": { "timeout": 10000 }
+      }
+    },
+    {
+      "id": "node-respond-done",
+      "name": "Respond done",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 300],
+      "parameters": { "respondWith": "json", "responseBody": "={ \"ok\": true }", "options": { "responseCode": 200 } }
     }
   ],
   "connections": {
-    "Webhook WhatsApp": {
-      "main": [
-        [{ "node": "Log payload", "type": "main", "index": 0 }]
-      ]
-    },
-    "Log payload": {
-      "main": [
-        [{ "node": "Responder 200", "type": "main", "index": 0 }]
-      ]
-    }
+    "Webhook WAHA": { "main": [[{ "node": "Context", "type": "main", "index": 0 }]] },
+    "Context": { "main": [[{ "node": "POST inbound", "type": "main", "index": 0 }]] },
+    "POST inbound": { "main": [[{ "node": "Descartado?", "type": "main", "index": 0 }]] },
+    "Descartado?": { "main": [ [{ "node": "Respond 200", "type": "main", "index": 0 }], [{ "node": "Es audio?", "type": "main", "index": 0 }] ] },
+    "Es audio?": { "main": [ [{ "node": "POST transcriber", "type": "main", "index": 0 }], [{ "node": "Respond done", "type": "main", "index": 0 }] ] },
+    "POST transcriber": { "main": [[{ "node": "POST attach-transcription", "type": "main", "index": 0 }]] },
+    "POST attach-transcription": { "main": [[{ "node": "Respond done", "type": "main", "index": 0 }]] }
   },
-  "active": false,
-  "settings": {
-    "executionOrder": "v1"
-  },
-  "tags": [{ "name": "fase-1" }]
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": true, "instanceId": "" },
+  "tags": [{ "name": "fase-3" }]
 }

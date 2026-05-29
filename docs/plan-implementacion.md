@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 3** — siguiente. Fase 2 completada en Sesión 4 (2026-05-28).
+> **Fase 3** — en curso. Implementación iniciada en Sesión 5 (2026-05-29).
 
 ---
 
@@ -89,21 +89,22 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 **Objetivo**: cuando un secretario manda audio o texto, queda persistido y transcrito en la DB.
 
 **Tareas**:
-- [ ] `services/transcriber/` con FastAPI + faster-whisper.
-- [ ] Dockerfile del transcriber. Modelo `medium` precargado en build.
-- [ ] Endpoint `POST /transcribe { path }` → devuelve `{ text, duration_sec }`.
-- [ ] Encolado simple con semaphore (max 2 jobs concurrentes).
-- [ ] Endpoint interno en la app `POST /api/internal/messages/inbound`:
+- [x] `services/transcriber/` con FastAPI + faster-whisper.
+- [x] Dockerfile del transcriber. Modelo `medium` precargado en build.
+- [x] Endpoint `POST /transcribe { path }` → devuelve `{ text, duration_sec }`.
+- [x] Encolado simple con semaphore (max 2 jobs concurrentes).
+- [x] Endpoint interno en la app `POST /api/internal/messages/inbound`:
   - Valida shared secret.
-  - Parsea payload de Evolution (usar `EvolutionProvider.parseInbound`).
-  - Si es audio: descarga el archivo a `data/audio/inbound/` con nombre `{cycleId}/{userId}/{messageId}.ogg`.
+  - Parsea payload de WAHA (adaptado: era Evolution en el doc original).
+  - Si es audio: descarga el archivo a `/data/audio/inbound/` con nombre `{cycleId}/{userId}/{messageId}.ogg`.
   - Resuelve `user_id` por `from_phone_e164`.
   - Persiste en `inbound_messages`.
   - Devuelve metadata para que n8n decida próximos pasos.
-- [ ] Endpoint `POST /api/internal/messages/:id/attach-transcription`.
-- [ ] Workflow `inbound-message-handle` completo:
-  - webhook → POST inbound → branch audio → POST transcriber → POST attach-transcription.
-- [ ] UI: vista `/mis-mensajes` lista los mensajes propios con transcripción.
+- [x] Endpoint `POST /api/internal/messages/:id/attach-transcription`.
+- [x] Workflow `inbound-message-handle` fase 3:
+  - webhook → POST inbound → branch discarded → branch audio → POST transcriber → POST attach-transcription.
+  - Exportado en `n8n/workflows/inbound-message-handle.json`.
+- [x] UI: vista `/mis-mensajes` lista los mensajes propios con transcripción.
 
 **Criterio**: mandás un audio de 30s al bot, en 1-2 min aparece transcrito en la UI.
 

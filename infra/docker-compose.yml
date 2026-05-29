@@ -37,6 +37,7 @@ services:
       WHATSAPP_API_KEY: ${WPPCONNECT_SECRET_KEY}
       WHATSAPP_HOOK_URL: https://n8n.atepsa.org.ar/webhook/whatsapp-inbound
       WHATSAPP_HOOK_EVENTS: message,message.any,session.status
+      WHATSAPP_DOWNLOAD_MEDIA: "true"
       WAHA_LOG_LEVEL: error
       TZ: America/Argentina/Buenos_Aires
     networks:
@@ -58,6 +59,7 @@ services:
       WEBHOOK_URL: https://n8n.atepsa.org.ar/
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_EDITOR_BASE_URL: https://n8n.atepsa.org.ar/
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: postgres
       DB_POSTGRESDB_PORT: "5432"
@@ -90,6 +92,8 @@ services:
       WAHA_URL: http://wppconnect:3000
       WAHA_SESSION: default
       TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - audio-data:/data/audio
     networks:
       - atepsa-rep
     depends_on:
@@ -97,12 +101,33 @@ services:
         condition: service_healthy
 
   # ─── Transcriber FastAPI (Fase 3) ─────────────────────────────────────────
-  # transcriber: solo red interna, sin puerto al host
+  transcriber:
+    build:
+      context: ../services/transcriber
+      dockerfile: Dockerfile
+    container_name: atepsa-rep-transcriber
+    restart: unless-stopped
+    environment:
+      WHISPER_MODEL: medium
+      WHISPER_COMPUTE_TYPE: int8
+      MAX_CONCURRENT_JOBS: "2"
+      TZ: America/Argentina/Buenos_Aires
+    volumes:
+      - audio-data:/data/audio
+    networks:
+      - atepsa-rep
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
 
 volumes:
   postgres-data:
   wppconnect-sessions:
   n8n-data:
+  audio-data:
 
 networks:
   # Red interna aislada — no se conecta con los containers de otros proyectos
