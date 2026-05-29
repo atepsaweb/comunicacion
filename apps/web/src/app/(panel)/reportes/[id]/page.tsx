@@ -143,8 +143,10 @@ export default async function ReporteDetailPage({ params }: Props) {
           </div>
           {report.followup_count > 0 && (
             <div>
-              <p className="text-zinc-400 text-xs">Repreguntas</p>
-              <p className="font-semibold text-zinc-800">{report.followup_count}/2</p>
+              <p className="text-zinc-400 text-xs">Repregunta</p>
+              <p className="font-semibold text-zinc-800">
+                {report.followup_count === 1 ? 'enviada' : `${report.followup_count} enviadas`}
+              </p>
             </div>
           )}
           {report.last_message_at && (
