@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 4** — pendiente. Fase 3 completada en Sesión 5 (2026-05-29).
+> **Fase 5** — pendiente. Fase 4 completada en Sesión 6 (2026-05-29).
 
 ---
 
@@ -117,19 +117,20 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 **Objetivo**: cada mensaje genera/actualiza un `report` con items estructurados.
 
 **Tareas**:
-- [ ] `apps/web/src/lib/ai/client.ts`: cliente Anthropic con caching habilitado, retry, logging a `ai_invocations`.
-- [ ] `apps/web/src/lib/ai/prompts/extract-report.ts`: prompt versionado con system, ejemplos, user template.
+- [x] `apps/web/src/lib/ai/client.ts`: cliente Anthropic con caching habilitado, retry, logging a `ai_invocations`.
+- [x] `apps/web/src/lib/ai/prompts/extract-report.ts`: prompt versionado con system, ejemplos, user template.
+- [x] `apps/web/src/lib/ai/prompts/classify-intent.ts`: prompt de clasificación de intención.
 - [ ] Seed inicial de `prompts` con los prompts del repo.
-- [ ] Endpoint `POST /api/internal/ai/classify-intent`.
-- [ ] Endpoint `POST /api/internal/ai/extract`:
+- [x] Endpoint `POST /api/internal/ai/classify-intent`.
+- [x] Endpoint `POST /api/internal/ai/extract`:
   - Toma el texto + report previo (si hay).
   - Llama a Haiku.
   - Parsea JSON.
   - Mergea con report existente o crea uno nuevo (`status='draft'`).
   - Persiste `report_items`.
   - Devuelve `{ reportId, completenessScore }`.
-- [ ] Workflow `inbound-message-handle` extendido: post-transcripción llama a classify + extract.
-- [ ] UI: vista `/reportes/[id]` muestra los items extraídos, agrupados por categoría.
+- [x] Workflow `inbound-message-handle` extendido: post-transcripción llama a classify + extract.
+- [x] UI: vista `/reportes/[id]` muestra los items extraídos, agrupados por categoría. También `/reportes` (lista).
 
 **Criterio**: mandás 2 audios sobre temas distintos en la misma semana, la UI muestra 1 reporte con 2+ items categorizados.
 

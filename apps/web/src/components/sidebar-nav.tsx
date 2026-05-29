@@ -16,6 +16,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Mis mensajes', href: '/mis-mensajes', icon: FileText, roles: ['secretary', 'executive', 'press_admin'] },
+  { label: 'Mis reportes', href: '/reportes', icon: FileText, roles: ['secretary', 'executive', 'press_admin'] },
   { label: 'Ausencias', href: '/ausencias', icon: CalendarOff },
   { label: 'Revisión', href: '/revision', icon: FileText, roles: ['press_admin'] },
   { label: 'Usuarios', href: '/admin/usuarios', icon: Users, roles: ['press_admin'] },
