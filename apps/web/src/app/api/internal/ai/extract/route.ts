@@ -65,13 +65,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'No text to extract' }, { status: 422 });
   }
 
+  const isFollowupReply = msg.intent === 'report_followup_reply';
+
   // Buscar reporte existente del mismo usuario en el mismo ciclo
   const existingReport = await db.query.reports.findFirst({
     where: and(
       eq(schema.reports.user_id, msg.user_id),
       eq(schema.reports.cycle_id, msg.cycle_id),
     ),
-    columns: { id: true, completeness_score: true },
+    columns: { id: true, completeness_score: true, status: true },
   });
 
   const existingItems = existingReport
@@ -118,10 +120,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .returning({ id: schema.reports.id });
     reportId = newReport.id;
   } else {
+    // No pisar el score si la IA no extrajo nada nuevo (el mensaje era contexto, no contenido)
+    const hasNewItems = parsed.items.length > 0;
+
+    // Si era una respuesta de seguimiento, volver el status a draft
+    const statusUpdate =
+      isFollowupReply && existingReport?.status === 'awaiting_followup'
+        ? { status: 'draft' as const }
+        : {};
+
     await db
       .update(schema.reports)
       .set({
-        completeness_score: String(parsed.completeness_score),
+        ...(hasNewItems ? { completeness_score: String(parsed.completeness_score) } : {}),
+        ...statusUpdate,
         last_message_at: new Date(),
         updated_at: new Date(),
       })

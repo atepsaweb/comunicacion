@@ -108,7 +108,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ path: $('POST inbound').item.json.audioPath }) }}",
-        "options": { "timeout": 180000 }
+        "options": { "timeout": 300000 }
       }
     },
     {
