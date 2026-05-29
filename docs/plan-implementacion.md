@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 6** — pendiente (saltada). **Fase 7** completada en Sesión 8 (2026-05-29). Fase 8 es la próxima.
+> **Fase 6** completada en Sesión 9 (2026-05-29). **Fase 7** completada en Sesión 8 (2026-05-29). Fase 8 es la próxima.
 
 ---
 
@@ -156,21 +156,23 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ---
 
-## Fase 6 — Ciclos semanales: triggers, recordatorios, cierre
+## Fase 6 — Ciclos semanales: triggers, recordatorios, cierre ✅
 
 **Objetivo**: el ciclo semanal opera completo sin intervención humana hasta el cierre.
 
 **Tareas**:
-- [ ] Endpoint `POST /api/internal/cycles/ensure`.
-- [ ] Endpoint `GET /api/internal/cycles/current`.
-- [ ] Endpoint `GET /api/internal/users/active-for-cycle/:id` (excluye licencias).
-- [ ] Endpoint `POST /api/internal/cycles/:id/open` y `:id/close`.
-- [ ] Workflow `cycle-bootstrap` (lunes 00:05).
-- [ ] Workflow `weekly-trigger-send` (jueves 10:00).
-- [ ] Workflow `weekly-reminder-send` (viernes 12:00).
-- [ ] Workflow `weekly-cycle-close` (viernes 18:00).
-- [ ] Gestión de ausencias: endpoints + workflow para parsear "vacaciones del X al Y" y "esta semana paso".
-- [ ] UI: `/ausencias` con calendario simple, registrar/cancelar.
+- [x] Endpoint `POST /api/internal/cycles/ensure`.
+- [x] Endpoint `GET /api/internal/cycles/current` (implementado en Fase 7).
+- [x] Endpoint `GET /api/internal/users/active-for-cycle/:id` (excluye licencias).
+- [x] Endpoint `POST /api/internal/cycles/:id/open` y `:id/close`.
+- [x] Workflow `cycle-bootstrap` (lunes 00:05 ART = 03:05 UTC).
+- [x] Workflow `weekly-trigger-send` (jueves 10:00 ART = 13:00 UTC).
+- [x] Workflow `weekly-reminder-send` (viernes 12:00 ART = 15:00 UTC).
+- [x] Workflow `weekly-cycle-close` (viernes 18:00 ART = 21:00 UTC).
+- [x] Gestión de ausencias: `POST /api/internal/messages/absence` + prompt `parse-absence` + rama en workflow `inbound-message-handle`.
+- [x] UI: `/ausencias` con formulario y lista, registrar/cancelar.
+- [x] Endpoint `POST /api/internal/cycles/:id/send-trigger` (trigger messages bulk).
+- [x] Endpoint `POST /api/internal/cycles/:id/send-reminder` (reminder messages bulk).
 
 **Criterio**: dejás el sistema corriendo un jueves; jueves 10 recibís el disparo; viernes 12 si no respondiste recibís recordatorio; viernes 18 el ciclo cierra solo.
 
