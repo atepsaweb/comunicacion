@@ -22,15 +22,15 @@ import {
 // process.cwd() apunta al WORKDIR de Next.js (/app en Docker, apps/web/ en dev local).
 const MEMBRETE_PATH = path.join(process.cwd(), 'public', 'template', 'membrete.jpg');
 
-// Dimensiones del membrete según el original (en EMU del OOXML)
-// A4 casi completo: 7515254 × 10629900 EMU
+// Dimensiones exactas de A4 en EMU (1 twip = 635 EMU)
+// A4: 11906 twips × 16838 twips → 7560310 × 10692130 EMU
 // Conversión a px @96 DPI: EMU * 96 / 914400
-const MEMBRETE_WIDTH_PX = Math.round(7515254 * 96 / 914400);  // ≈ 789
-const MEMBRETE_HEIGHT_PX = Math.round(10629900 * 96 / 914400); // ≈ 1115
+const MEMBRETE_WIDTH_PX = Math.round(11906 * 635 * 96 / 914400);  // ≈ 793
+const MEMBRETE_HEIGHT_PX = Math.round(16838 * 635 * 96 / 914400); // ≈ 1121
 
-// Offsets del membrete en EMU (tomados del header1.xml original)
-const MEMBRETE_H_OFFSET = 12700;    // ~0.03cm desde el borde izquierdo de la página
-const MEMBRETE_V_OFFSET = -122555;  // ligeramente por encima del primer párrafo del encabezado
+// La imagen arranca en la esquina superior-izquierda exacta de la página (sin offset)
+const MEMBRETE_H_OFFSET = 0;
+const MEMBRETE_V_OFFSET = 0;
 
 // Márgenes de página A4 (en twips, 1440 = 1 pulgada = 2.54cm)
 // Top 4.5cm para quedar bien debajo de la banda de logos del membrete
@@ -164,7 +164,7 @@ export async function markdownToDocx(
                 offset: MEMBRETE_H_OFFSET,
               },
               verticalPosition: {
-                relative: VerticalPositionRelativeFrom.PARAGRAPH,
+                relative: VerticalPositionRelativeFrom.PAGE,
                 offset: MEMBRETE_V_OFFSET,
               },
               behindDocument: true,
