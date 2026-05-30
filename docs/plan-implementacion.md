@@ -251,7 +251,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 - [ ] Trámite con Meta para Business Account, verificación.
 - [ ] Migrar el número (esto requiere coordinación con Meta).
 - [ ] Cambiar `WHATSAPP_PROVIDER=meta` en `.env`, deploy.
-- [ ] Backups: validar restore real (no solo que el pg_dump corre).
+- [x] Backups: restore validado 2026-05-30. Backup 916KB restaurado a DB temporal, verificado 28 usuarios + ciclos + reportes + prompts. Cron corregido (container name).
 - [x] Rate limiting en endpoints internos: 100 req/min por IP en middleware (Map en memoria).
 - [ ] Monitoring básico: uptime check externo, alertas a Julián.
 - [ ] Documentar runbook de emergencias: bot caído, postgres caído, claude API caído.
