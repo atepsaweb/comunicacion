@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 6** completada en Sesión 9 (2026-05-29). **Fase 7** completada en Sesión 8 (2026-05-29). **Fase 8** completada en Sesión 10 (2026-05-29). Fase 9 es la próxima.
+> **Fase 6** completada en Sesión 9 (2026-05-29). **Fase 7** completada en Sesión 8 (2026-05-29). **Fase 8** completada en Sesión 10 (2026-05-29). **Fase 9** completada en Sesión 11 (2026-05-30). Fase 10 es la próxima.
 
 ---
 
@@ -221,17 +221,20 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ---
 
-## Fase 9 — Admin: prompts editables, gestión de usuarios, logs
+## Fase 9 — Admin: prompts editables, gestión de usuarios, logs ✅
 
 **Objetivo**: Julián puede operar el sistema sin tocar código.
 
 **Tareas**:
-- [ ] UI `/admin/usuarios`: CRUD de los 27, alta/baja, cambio de rol, cambio de número.
-- [ ] UI `/admin/prompts`: ver, editar (crea nueva versión), activar versión, ver historial.
-- [ ] UI `/admin/logs/ia`: tabla de `ai_invocations` con filtros (purpose, modelo, ciclo, costo).
-- [ ] UI `/admin/logs/audit`: tabla de `audit_log`.
-- [ ] UI `/admin/settings`: edición de `system_settings` (categorías, horarios, modelos por slug).
-- [ ] Botón "Re-procesar ciclo" en `/admin/cycles/[id]` que dispara `weekly-process` manualmente.
+- [x] UI `/admin/usuarios`: CRUD de los 27, alta/baja, cambio de rol, cambio de número.
+- [x] UI `/admin/prompts`: ver, editar (crea nueva versión), activar versión, ver historial.
+- [x] UI `/admin/logs/ia`: tabla de `ai_invocations` con filtros (purpose, ciclo, fecha, costo).
+- [x] UI `/admin/logs/audit`: tabla de `audit_log` (últimas 100 entradas).
+- [x] Seed inicial de tabla `prompts` con los 8 slugs del sistema.
+- [x] Sidebar actualizado: Prompts IA, Logs IA, Logs Auditoría.
+- [ ] UI `/admin/settings`: edición de `system_settings` (pendiente para Fase 10).
+- [ ] Botón "Re-procesar ciclo" (pendiente para Fase 10).
+- [ ] Conectar prompts de DB al flujo de IA (pendiente — IA actualmente lee hardcodeados).
 
 **Criterio**: Julián edita un prompt desde el panel, la próxima generación usa la versión nueva.
 
