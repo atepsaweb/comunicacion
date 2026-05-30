@@ -5,7 +5,7 @@
 set -euo pipefail
 
 BACKUP_DIR="/opt/atepsa-reportes/backups"
-CONTAINER="atepsa-postgres"
+CONTAINER="atepsa-rep-postgres"
 DB="${POSTGRES_DB:-atepsa}"
 USER="${POSTGRES_USER:-app_user}"
 RETENTION_DAYS=30

@@ -7,7 +7,7 @@
 set -euo pipefail
 
 BACKUP_FILE="${1:-}"
-CONTAINER="atepsa-postgres"
+CONTAINER="atepsa-rep-postgres"
 DB="${POSTGRES_DB:-atepsa}"
 USER="${POSTGRES_USER:-app_user}"
 
