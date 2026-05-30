@@ -13,6 +13,7 @@ import {
   type DraftInstagramOutput,
   type DraftXOutput,
 } from '@/lib/ai/prompts/draft-publication';
+import { getActivePrompt } from '@/lib/ai/db-prompts';
 import { logger } from '@/lib/logger';
 
 type Body = { cycleId: string; kind: PublicationKind };
@@ -112,12 +113,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     year: cycle?.year ?? new Date().getFullYear(),
   });
 
+  const dbSlug = kind === 'newsletter' ? 'draft-newsletter' : 'draft-social';
+  const dbPrompt = await getActivePrompt(dbSlug);
+  const systemText = dbPrompt?.system_prompt ?? getSystemForKind(kind);
+
   const result = await callAI({
     purpose: kind === 'newsletter' ? 'draft_newsletter' : 'draft_social',
     model: DRAFT_PUBLICATION_MODEL,
-    systemBlocks: [{ text: getSystemForKind(kind), cache: true }],
+    systemBlocks: [{ text: systemText, cache: true }],
     userContent: userPrompt,
     relatedCycleId: cycleId,
+    promptId: dbPrompt?.id,
   });
 
   // Parsear output según el kind

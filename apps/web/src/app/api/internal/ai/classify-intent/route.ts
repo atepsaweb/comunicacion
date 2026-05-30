@@ -10,6 +10,7 @@ import {
   buildClassifyIntentPrompt,
   type ClassifyIntentOutput,
 } from '@/lib/ai/prompts/classify-intent';
+import { getActivePrompt } from '@/lib/ai/db-prompts';
 import { logger } from '@/lib/logger';
 
 type Body = { messageId: string };
@@ -63,12 +64,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     hasAwaitingFollowup = !!pendingReport;
   }
 
+  const dbPrompt = await getActivePrompt('classify-intent');
+  const systemText = dbPrompt?.system_prompt ?? CLASSIFY_INTENT_SYSTEM;
+
   const result = await callAI({
     purpose: 'classify_intent',
     model: CLASSIFY_INTENT_MODEL,
-    systemBlocks: [{ text: CLASSIFY_INTENT_SYSTEM, cache: true }],
+    systemBlocks: [{ text: systemText, cache: true }],
     userContent: buildClassifyIntentPrompt(text, hasAwaitingFollowup),
     relatedCycleId: msg.cycle_id ?? undefined,
+    promptId: dbPrompt?.id,
   });
 
   let parsed: ClassifyIntentOutput;

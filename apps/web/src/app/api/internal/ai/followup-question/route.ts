@@ -9,6 +9,7 @@ import {
   FOLLOWUP_QUESTION_MODEL,
   buildFollowupQuestionPrompt,
 } from '@/lib/ai/prompts/followup-question';
+import { getActivePrompt } from '@/lib/ai/db-prompts';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
 import { uuidv7 } from 'uuidv7';
@@ -65,13 +66,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const reportSummary = buildReportSummary(items);
 
+  const dbPrompt = await getActivePrompt('followup-question');
+  const systemText = dbPrompt?.system_prompt ?? FOLLOWUP_QUESTION_SYSTEM;
+
   const result = await callAI({
     purpose: 'followup_question',
     model: FOLLOWUP_QUESTION_MODEL,
-    systemBlocks: [{ text: FOLLOWUP_QUESTION_SYSTEM, cache: true }],
+    systemBlocks: [{ text: systemText, cache: true }],
     userContent: buildFollowupQuestionPrompt(reportSummary, topic),
     relatedReportId: reportId,
     relatedCycleId: report.cycle_id ?? undefined,
+    promptId: dbPrompt?.id,
   });
 
   const question = result.text.trim();

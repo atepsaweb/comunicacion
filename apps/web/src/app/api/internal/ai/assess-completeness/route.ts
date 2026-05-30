@@ -10,6 +10,7 @@ import {
   buildAssessCompletenessPrompt,
   type AssessCompletenessOutput,
 } from '@/lib/ai/prompts/assess-completeness';
+import { getActivePrompt } from '@/lib/ai/db-prompts';
 import { logger } from '@/lib/logger';
 
 const MAX_FOLLOWUPS = 2;
@@ -75,13 +76,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const reportSummary = buildReportSummary(items, report.completeness_score);
 
+  const dbPrompt = await getActivePrompt('assess-completeness');
+  const systemText = dbPrompt?.system_prompt ?? ASSESS_COMPLETENESS_SYSTEM;
+
   const result = await callAI({
     purpose: 'assess_completeness',
     model: ASSESS_COMPLETENESS_MODEL,
-    systemBlocks: [{ text: ASSESS_COMPLETENESS_SYSTEM, cache: true }],
+    systemBlocks: [{ text: systemText, cache: true }],
     userContent: buildAssessCompletenessPrompt(reportSummary),
     relatedReportId: reportId,
     relatedCycleId: report.cycle_id ?? undefined,
+    promptId: dbPrompt?.id,
   });
 
   let parsed: AssessCompletenessOutput;

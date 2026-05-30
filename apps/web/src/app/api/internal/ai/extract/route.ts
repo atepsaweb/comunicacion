@@ -11,6 +11,7 @@ import {
   buildExtractReportPrompt,
   type ExtractReportOutput,
 } from '@/lib/ai/prompts/extract-report';
+import { getActivePrompt } from '@/lib/ai/db-prompts';
 import { logger } from '@/lib/logger';
 
 type Body = { messageId: string };
@@ -83,16 +84,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       })
     : [];
 
+  const dbPrompt = await getActivePrompt('extract-report');
+  const systemBlocks = dbPrompt
+    ? [{ text: dbPrompt.system_prompt, cache: true }]
+    : [
+        { text: EXTRACT_REPORT_SYSTEM, cache: true },
+        { text: EXTRACT_REPORT_FEW_SHOT, cache: true },
+      ];
+
   const result = await callAI({
     purpose: 'extract',
     model: EXTRACT_REPORT_MODEL,
-    systemBlocks: [
-      { text: EXTRACT_REPORT_SYSTEM, cache: true },
-      { text: EXTRACT_REPORT_FEW_SHOT, cache: true },
-    ],
+    systemBlocks,
     userContent: buildExtractReportPrompt({ messageText: text, existingItems }),
     relatedReportId: existingReport?.id,
     relatedCycleId: msg.cycle_id,
+    promptId: dbPrompt?.id,
   });
 
   let parsed: ExtractReportOutput;

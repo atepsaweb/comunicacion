@@ -27,6 +27,7 @@ export type CallAIParams = {
   triggeredBy?: AITriggeredBy;
   relatedReportId?: string;
   relatedCycleId?: string;
+  promptId?: string;
 };
 
 export type CallAIResult = {
@@ -48,6 +49,7 @@ export async function callAI(params: CallAIParams): Promise<CallAIResult> {
     triggeredBy = 'workflow',
     relatedReportId,
     relatedCycleId,
+    promptId,
   } = params;
 
   const systemContent = systemBlocks.map(b => ({
@@ -102,7 +104,7 @@ export async function callAI(params: CallAIParams): Promise<CallAIResult> {
       .values({
         purpose,
         model,
-        prompt_id: null,
+        prompt_id: promptId ?? null,
         input_messages: inputMessages,
         output_text: outputText || null,
         output_parsed: null,

@@ -10,6 +10,7 @@ import {
   buildConsolidatePrompt,
   type ConsolidateInput,
 } from '@/lib/ai/prompts/consolidate-internal';
+import { getActivePrompt } from '@/lib/ai/db-prompts';
 import { logger } from '@/lib/logger';
 
 type Body = { cycleId: string };
@@ -150,12 +151,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     noReportAuthors,
   };
 
+  const dbPrompt = await getActivePrompt('consolidate-internal');
+  const systemText = dbPrompt?.system_prompt ?? CONSOLIDATE_INTERNAL_SYSTEM;
+
   const result = await callAI({
     purpose: 'consolidate',
     model: CONSOLIDATE_INTERNAL_MODEL,
-    systemBlocks: [{ text: CONSOLIDATE_INTERNAL_SYSTEM, cache: true }],
+    systemBlocks: [{ text: systemText, cache: true }],
     userContent: buildConsolidatePrompt(consolidateInput),
     relatedCycleId: cycleId,
+    promptId: dbPrompt?.id,
   });
 
   // Árbol temático para el campo themes

@@ -10,6 +10,7 @@ import {
   buildParseAbsencePrompt,
   type ParseAbsenceOutput,
 } from '@/lib/ai/prompts/parse-absence';
+import { getActivePrompt } from '@/lib/ai/db-prompts';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
 
@@ -67,13 +68,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const weekMonday = mondayUTC.toISOString().split('T')[0];
   const weekSunday = addDays(mondayUTC, 6);
 
+  const dbPrompt = await getActivePrompt('parse-absence');
+  const systemText = dbPrompt?.system_prompt ?? PARSE_ABSENCE_SYSTEM;
+
   const aiResult = await callAI({
     purpose: 'other',
     model: PARSE_ABSENCE_MODEL,
-    systemBlocks: [{ text: PARSE_ABSENCE_SYSTEM, cache: true }],
+    systemBlocks: [{ text: systemText, cache: true }],
     userContent: buildParseAbsencePrompt(text, today, weekMonday, weekSunday),
     triggeredBy: 'workflow',
     relatedCycleId: message.cycle_id ?? undefined,
+    promptId: dbPrompt?.id,
   });
 
   const parsed = parseAIJson<ParseAbsenceOutput>(aiResult.text);
