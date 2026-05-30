@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 6** completada en Sesión 9 (2026-05-29). **Fase 7** completada en Sesión 8 (2026-05-29). **Fase 8** completada en Sesión 10 (2026-05-29). **Fase 9** completada en Sesión 11 (2026-05-30). Fase 10 es la próxima.
+> **Fase 6** completada en Sesión 9 (2026-05-29). **Fase 7** completada en Sesión 8 (2026-05-29). **Fase 8** completada en Sesión 10 (2026-05-29). **Fase 9** completada en Sesión 11 (2026-05-30). **Fase 10** completada parcialmente en Sesión 12 (2026-05-30): hardening técnico completado (prompts DB, rate limit, health check, /admin/settings). Pendiente de la Fase 10: migración a Meta Cloud API (depende de trámite con Meta), validación de restore de backup, runbook de emergencias.
 
 ---
 
@@ -252,9 +252,12 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 - [ ] Migrar el número (esto requiere coordinación con Meta).
 - [ ] Cambiar `WHATSAPP_PROVIDER=meta` en `.env`, deploy.
 - [ ] Backups: validar restore real (no solo que el pg_dump corre).
-- [ ] Rate limiting en endpoints internos (por shared secret saturable).
+- [x] Rate limiting en endpoints internos: 100 req/min por IP en middleware (Map en memoria).
 - [ ] Monitoring básico: uptime check externo, alertas a Julián.
 - [ ] Documentar runbook de emergencias: bot caído, postgres caído, claude API caído.
+- [x] Conectar prompts de DB al flujo de IA: `getActivePrompt()` en los 7 endpoints, fallback a hardcodeados.
+- [x] `/api/health`: verifica DB, devuelve `{ ok, db, version }`.
+- [x] `/admin/settings`: UI + API CRUD para `system_settings` (report_categories, max_followup_per_cycle, cycle_timezone).
 
 **Criterio**: el sistema corre con Meta Cloud API estable durante 4 semanas sin intervención.
 
