@@ -10,45 +10,39 @@ const SESSION_COOKIE = `${isSecure ? '__Secure-' : ''}next-auth.session-token`;
 
 type RouteCtx = { params: { nextauth: string[] } };
 type AuthHandler = (req: NextRequest, ctx: RouteCtx) => Promise<Response>;
+type HeadersWithGetSetCookie = Headers & { getSetCookie(): string[] };
+
+const isSessionCookie = (c: string): boolean => c.startsWith(`${SESSION_COOKIE}=`);
+const lacksExpiry = (c: string): boolean => !/max-age|expires/i.test(c);
 
 /**
- * NextAuth v4 + Next.js 14 App Router no escribe maxAge en el header Set-Cookie
- * de la respuesta pese a estar configurado. Este wrapper intercepta la respuesta
- * y fuerza Max-Age en la cookie de sesión si falta, antes de enviarla al browser.
+ * NextAuth v4 con CredentialsProvider emite la cookie de sesión SIN Max-Age ni
+ * Expires, así que el navegador la trata como cookie de sesión y la borra al
+ * cerrarse. Este wrapper le agrega Max-Age (30 días) mutando los headers de la
+ * respuesta in-place — reconstruir el Response re-serializaba el body y perdía
+ * el parche.
  *
- * IMPORTANTE: hay que reenviar `ctx` (params de la ruta) al handler de NextAuth;
- * sin eso falla con "Cannot read properties of undefined (reading 'nextauth')".
+ * IMPORTANTE: hay que reenviar `ctx` (params de ruta) al handler de NextAuth, o
+ * falla con "Cannot read properties of undefined (reading 'nextauth')".
  */
 async function handler(req: NextRequest, ctx: RouteCtx): Promise<Response> {
   const res = await (nextAuthHandler as unknown as AuthHandler)(req, ctx);
 
-  // getSetCookie() devuelve cada Set-Cookie como elemento separado (Node 18+).
-  type HeadersWithGetSetCookie = Headers & { getSetCookie(): string[] };
-  const setCookies = (res.headers as HeadersWithGetSetCookie).getSetCookie();
-  if (!setCookies.length) return res;
+  const headers = res.headers as HeadersWithGetSetCookie;
+  if (typeof headers.getSetCookie !== 'function') return res;
 
-  const needsPatch = setCookies.some(
-    c => c.startsWith(`${SESSION_COOKIE}=`) && !c.toLowerCase().includes('max-age'),
-  );
+  const cookies = headers.getSetCookie();
+  const needsPatch = cookies.some(c => isSessionCookie(c) && lacksExpiry(c));
   if (!needsPatch) return res;
 
-  const patchedCookies = setCookies.map(c =>
-    c.startsWith(`${SESSION_COOKIE}=`) && !c.toLowerCase().includes('max-age')
-      ? `${c}; Max-Age=${SESSION_MAX_AGE_SECS}`
-      : c,
+  const patched = cookies.map(c =>
+    isSessionCookie(c) && lacksExpiry(c) ? `${c}; Max-Age=${SESSION_MAX_AGE_SECS}` : c,
   );
 
-  const newHeaders = new Headers();
-  res.headers.forEach((value, key) => {
-    if (key.toLowerCase() !== 'set-cookie') newHeaders.set(key, value);
-  });
-  patchedCookies.forEach(c => newHeaders.append('set-cookie', c));
+  headers.delete('set-cookie');
+  for (const c of patched) headers.append('set-cookie', c);
 
-  return new Response(res.body, {
-    status: res.status,
-    statusText: res.statusText,
-    headers: newHeaders,
-  });
+  return res;
 }
 
 export const GET = handler;
