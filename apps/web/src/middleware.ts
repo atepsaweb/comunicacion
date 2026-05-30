@@ -5,7 +5,7 @@ const isSecure = process.env.NEXTAUTH_URL?.startsWith('https://') ?? false;
 const COOKIE_NAME = `${isSecure ? '__Secure-' : ''}next-auth.session-token`;
 
 // Rutas que NO necesitan autenticación
-const PUBLIC = /^(\/login|\/api\/auth|\/api\/internal|\/api\/debug-auth|\/favicon\.ico|\/_next\/)/;
+const PUBLIC = /^(\/login|\/api\/auth|\/api\/internal|\/favicon\.ico|\/_next\/)/;
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -19,14 +19,8 @@ export async function middleware(req: NextRequest) {
     secureCookie: isSecure,
   });
 
-  if (token) {
-    // eslint-disable-next-line no-console
-    console.error('[MW] PASS', pathname, 'user:', (token as { id?: string }).id);
-    return NextResponse.next();
-  }
+  if (token) return NextResponse.next();
 
-  // eslint-disable-next-line no-console
-  console.error('[MW] BLOCK', pathname, 'cookieNames:', req.cookies.getAll().map(c => c.name));
   const login = new URL('/login', req.url);
   login.searchParams.set('callbackUrl', pathname);
   return NextResponse.redirect(login);
