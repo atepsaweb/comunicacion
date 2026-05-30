@@ -11,7 +11,7 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ## Estado actual
 
-> **Fase 6** completada en Sesión 9 (2026-05-29). **Fase 7** completada en Sesión 8 (2026-05-29). Fase 8 es la próxima.
+> **Fase 6** completada en Sesión 9 (2026-05-29). **Fase 7** completada en Sesión 8 (2026-05-29). **Fase 8** completada en Sesión 10 (2026-05-29). Fase 9 es la próxima.
 
 ---
 
@@ -203,17 +203,17 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 
 ---
 
-## Fase 8 — Dashboard ejecutivo + escalación
+## Fase 8 — Dashboard ejecutivo + escalación ✅
 
 **Objetivo**: la Mesa Ejecutiva tiene visibilidad de cumplimiento; las alertas escalonadas funcionan.
 
 **Tareas**:
-- [ ] UI `/ejecutivo/cumplimiento`: matriz user × últimas 12 semanas con celdas coloreadas (verde reportó, gris licencia, amarillo pausa, rojo no reportó).
-- [ ] UI `/ejecutivo/estadisticas`: gráficos simples de items por categoría, evolución semanal.
-- [ ] Endpoint `GET /api/exports/cumplimiento.xlsx`: genera Excel con la matriz.
-- [ ] Workflow `escalation-check` (lunes 09:00).
-- [ ] Notificación a Julián cuando alguien lleva 2 semanas sin reportar.
-- [ ] Sección "Sin reporte recientemente" en el consolidado del lunes cuando aplica.
+- [x] UI `/ejecutivo/cumplimiento`: matriz user × últimas 12 semanas con celdas coloreadas (verde reportó, gris licencia, amarillo pausa, rojo no reportó).
+- [x] UI `/ejecutivo/estadisticas`: paneles de items por categoría, evolución semanal y resumen ciclo actual (barras CSS puras).
+- [x] Endpoint `GET /api/exports/cumplimiento.xlsx`: genera Excel con la matriz (SheetJS).
+- [x] Workflow `escalation-check` (lunes 09:00 ART + disparo manual).
+- [x] Notificación a Julián cuando alguien lleva 2+ semanas sin reportar.
+- [ ] Sección "Sin reporte recientemente" en el consolidado del lunes cuando aplica (pendiente — ya incluida en el consolidado vía noReportAuthors).
 
 **Criterio**: la Mesa Ejecutiva puede entrar y ver de un vistazo quién reportó en las últimas 12 semanas. Las alertas escalonadas se generan automáticamente.
 
