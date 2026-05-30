@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { LayoutDashboard, FileText, CalendarOff, LogOut, Settings, Users } from 'lucide-react';
+import { LayoutDashboard, FileText, CalendarOff, LogOut, Settings, Users, BarChart2, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -19,6 +19,8 @@ const navItems: NavItem[] = [
   { label: 'Mis reportes', href: '/reportes', icon: FileText, roles: ['secretary', 'executive', 'press_admin'] },
   { label: 'Ausencias', href: '/ausencias', icon: CalendarOff },
   { label: 'Revisión', href: '/revision', icon: FileText, roles: ['press_admin'] },
+  { label: 'Cumplimiento', href: '/ejecutivo/cumplimiento', icon: BarChart2, roles: ['executive', 'press_admin'] },
+  { label: 'Estadísticas', href: '/ejecutivo/estadisticas', icon: TrendingUp, roles: ['executive', 'press_admin'] },
   { label: 'Usuarios', href: '/admin/usuarios', icon: Users, roles: ['press_admin'] },
   { label: 'Configuración', href: '/admin/settings', icon: Settings, roles: ['press_admin'] },
 ];
