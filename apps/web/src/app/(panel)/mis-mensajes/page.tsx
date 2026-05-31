@@ -5,11 +5,18 @@ import { eq, desc } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import { Card, CardContent } from '@/components/ui/card';
 
-const kindLabel: Record<string, string> = {
-  text: 'Texto',
-  audio: 'Audio',
-  other: 'Otro',
-};
+function kindLabel(kind: string, mimeType: string | null): string {
+  if (kind === 'text') return 'Texto';
+  if (kind === 'audio') return 'Audio';
+  if (kind === 'other') {
+    if (!mimeType) return 'Archivo';
+    if (mimeType === 'application/pdf') return 'PDF';
+    if (mimeType.startsWith('image/')) return 'Imagen';
+    if (mimeType.includes('wordprocessingml') || mimeType === 'application/msword') return 'Documento Word';
+    return 'Archivo';
+  }
+  return kind;
+}
 
 export default async function MisMensajesPage() {
   const session = await getServerSession(authOptions);
@@ -19,16 +26,23 @@ export default async function MisMensajesPage() {
     .select({
       id: schema.inboundMessages.id,
       kind: schema.inboundMessages.kind,
+      mime_type: schema.inboundMessages.mime_type,
       text_content: schema.inboundMessages.text_content,
       received_at: schema.inboundMessages.received_at,
       processed_at: schema.inboundMessages.processed_at,
       transcription_text: schema.transcriptions.text,
       transcription_duration: schema.transcriptions.duration_sec,
+      document_text: schema.documentExtractions.text,
+      document_method: schema.documentExtractions.extraction_method,
     })
     .from(schema.inboundMessages)
     .leftJoin(
       schema.transcriptions,
       eq(schema.transcriptions.inbound_message_id, schema.inboundMessages.id),
+    )
+    .leftJoin(
+      schema.documentExtractions,
+      eq(schema.documentExtractions.inbound_message_id, schema.inboundMessages.id),
     )
     .where(eq(schema.inboundMessages.user_id, session.user.id))
     .orderBy(desc(schema.inboundMessages.received_at))
@@ -58,7 +72,9 @@ export default async function MisMensajesPage() {
               <Card>
                 <CardContent className="py-4 px-5 space-y-2">
                   <div className="flex items-center gap-2 text-xs text-zinc-500">
-                    <span className="font-medium text-zinc-700">{kindLabel[msg.kind] ?? msg.kind}</span>
+                    <span className="font-medium text-zinc-700">
+                      {kindLabel(msg.kind, msg.mime_type ?? null)}
+                    </span>
                     <span>·</span>
                     <span>
                       {new Date(msg.received_at).toLocaleString('es-AR', {
@@ -69,7 +85,7 @@ export default async function MisMensajesPage() {
                         minute: '2-digit',
                       })}
                     </span>
-                    {msg.processed_at && (
+                    {(msg.processed_at || msg.document_text) && (
                       <>
                         <span>·</span>
                         <span className="text-green-600 font-medium">procesado</span>
@@ -95,6 +111,21 @@ export default async function MisMensajesPage() {
                       {msg.processed_at
                         ? 'Transcripción no disponible.'
                         : 'Transcripción pendiente...'}
+                    </p>
+                  )}
+
+                  {msg.kind === 'other' && msg.document_text && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-zinc-400">Texto extraído</p>
+                      <p className="text-sm text-zinc-800 whitespace-pre-wrap line-clamp-6">
+                        {msg.document_text}
+                      </p>
+                    </div>
+                  )}
+
+                  {msg.kind === 'other' && !msg.document_text && (
+                    <p className="text-sm text-zinc-400 italic">
+                      Extrayendo contenido...
                     </p>
                   )}
                 </CardContent>

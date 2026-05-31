@@ -101,6 +101,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const quotedWamid = payload.quotedMsg?.id ?? null;
   const quotedBody = payload.quotedMsg?.body?.slice(0, 500) ?? null;
 
+  // Idempotencia: WAHA puede reintentar el webhook si n8n tarda en responder
+  const existingMsg = await db.query.inboundMessages.findFirst({
+    where: eq(schema.inboundMessages.provider_message_id, payload.id),
+    columns: { id: true },
+  });
+  if (existingMsg) {
+    logger.warn({ waMessageId: payload.id }, 'inbound: mensaje duplicado — ignorado');
+    return NextResponse.json({ discarded: true, reason: 'duplicado' });
+  }
+
   const user = await db.query.users.findFirst({
     where: eq(schema.users.phone_e164, fromPhone),
     columns: { id: true },
