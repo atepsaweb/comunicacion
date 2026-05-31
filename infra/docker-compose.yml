@@ -94,6 +94,7 @@ services:
       TZ: America/Argentina/Buenos_Aires
     volumes:
       - audio-data:/data/audio
+      - documents-data:/data/documents
     networks:
       - atepsa-rep
     depends_on:
@@ -128,6 +129,7 @@ volumes:
   wppconnect-sessions:
   n8n-data:
   audio-data:
+  documents-data:
 
 networks:
   # Red interna aislada — no se conecta con los containers de otros proyectos
