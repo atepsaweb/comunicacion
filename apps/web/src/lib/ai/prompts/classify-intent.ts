@@ -12,11 +12,24 @@ Respondé únicamente con JSON válido, sin texto extra antes ni después:
 
 export const CLASSIFY_INTENT_MODEL = 'claude-haiku-4-5-20251001';
 
-export function buildClassifyIntentPrompt(messageText: string, hasAwaitingFollowup?: boolean): string {
-  const context = hasAwaitingFollowup
-    ? '\n\n[CONTEXTO: El bot le hizo una pregunta de seguimiento a este secretario sobre su reporte. Es probable que este mensaje sea una respuesta a esa pregunta.]'
-    : '';
-  return `Clasificá este mensaje de un secretario gremial:${context}\n\n"${messageText}"`;
+export function buildClassifyIntentPrompt(
+  messageText: string,
+  hasAwaitingFollowup?: boolean,
+  quotedBody?: string,
+): string {
+  const parts: string[] = [];
+
+  if (hasAwaitingFollowup) {
+    parts.push('[CONTEXTO: El bot le hizo una pregunta de seguimiento sobre su reporte. Es probable que este mensaje sea una respuesta a esa pregunta.]');
+  }
+
+  if (quotedBody) {
+    // El secretario está respondiendo citando un mensaje previo del hilo
+    parts.push(`[HILO: El secretario está respondiendo a este mensaje: "${quotedBody.slice(0, 300)}"]`);
+  }
+
+  const contextBlock = parts.length > 0 ? `\n\n${parts.join('\n')}` : '';
+  return `Clasificá este mensaje de un secretario gremial:${contextBlock}\n\nMensaje: "${messageText}"`;
 }
 
 export type ClassifyIntentOutput = {

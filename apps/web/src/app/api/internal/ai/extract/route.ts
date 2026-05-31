@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc, inArray, not } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 
 type Body = { messageId: string };
 
+/** Resuelve el texto del mensaje: texto plano, audio transcripto o documento extraído */
 async function resolveMessageText(
   msg: { id: string; kind: string; text_content: string | null },
 ): Promise<string | null> {
@@ -26,7 +27,46 @@ async function resolveMessageText(
     });
     return tx?.text ?? null;
   }
+  if (msg.kind === 'other') {
+    const docEx = await db.query.documentExtractions.findFirst({
+      where: eq(schema.documentExtractions.inbound_message_id, msg.id),
+      columns: { text: true },
+    });
+    return docEx?.text ?? null;
+  }
   return msg.text_content;
+}
+
+/** Obtiene los ítems del reporte del ciclo anterior para este usuario (memoria cross-week) */
+async function getPreviousWeekItems(
+  userId: string,
+  currentCycleId: string,
+): Promise<{ title: string; category: string }[]> {
+  const prevCycle = await db.query.weeklyCycles.findFirst({
+    where: and(
+      inArray(schema.weeklyCycles.status, ['closed', 'processed', 'published']),
+      not(eq(schema.weeklyCycles.id, currentCycleId)),
+    ),
+    orderBy: [desc(schema.weeklyCycles.starts_at)],
+    columns: { id: true },
+  });
+
+  if (!prevCycle) return [];
+
+  const prevReport = await db.query.reports.findFirst({
+    where: and(
+      eq(schema.reports.user_id, userId),
+      eq(schema.reports.cycle_id, prevCycle.id),
+    ),
+    columns: { id: true },
+  });
+
+  if (!prevReport) return [];
+
+  return db.query.reportItems.findMany({
+    where: eq(schema.reportItems.report_id, prevReport.id),
+    columns: { title: true, category: true },
+  });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -48,6 +88,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       user_id: true,
       cycle_id: true,
       intent: true,
+      quoted_body: true,  // Threading
     },
   });
 
@@ -68,7 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const isFollowupReply = msg.intent === 'report_followup_reply';
 
-  // Buscar reporte existente del mismo usuario en el mismo ciclo
+  // Reporte existente del mismo usuario en el mismo ciclo
   const existingReport = await db.query.reports.findFirst({
     where: and(
       eq(schema.reports.user_id, msg.user_id),
@@ -84,6 +125,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       })
     : [];
 
+  // Memoria cross-week: ítems del ciclo anterior
+  const previousWeekItems = await getPreviousWeekItems(msg.user_id, msg.cycle_id);
+
   const dbPrompt = await getActivePrompt('extract-report');
   const systemBlocks = dbPrompt
     ? [{ text: dbPrompt.system_prompt, cache: true }]
@@ -96,7 +140,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     purpose: 'extract',
     model: EXTRACT_REPORT_MODEL,
     systemBlocks,
-    userContent: buildExtractReportPrompt({ messageText: text, existingItems }),
+    userContent: buildExtractReportPrompt({
+      messageText: text,
+      existingItems,
+      previousWeekItems: previousWeekItems.length > 0 ? previousWeekItems : undefined,
+      quotedBody: msg.quoted_body,
+    }),
     relatedReportId: existingReport?.id,
     relatedCycleId: msg.cycle_id,
     promptId: dbPrompt?.id,
@@ -127,10 +176,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .returning({ id: schema.reports.id });
     reportId = newReport.id;
   } else {
-    // No pisar el score si la IA no extrajo nada nuevo (el mensaje era contexto, no contenido)
     const hasNewItems = parsed.items.length > 0;
 
-    // Si era una respuesta de seguimiento, volver el status a draft
     const statusUpdate =
       isFollowupReply && existingReport?.status === 'awaiting_followup'
         ? { status: 'draft' as const }
@@ -146,7 +193,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       })
       .where(eq(schema.reports.id, reportId));
 
-    // Si merge_strategy es "replace", eliminar items existentes
     if (parsed.merge_strategy === 'replace') {
       await db
         .delete(schema.reportItems)
@@ -154,7 +200,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Insertar los nuevos items
   if (parsed.items.length > 0) {
     const startIndex = parsed.merge_strategy === 'replace' ? 0 : existingItems.length;
 
@@ -172,7 +217,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Actualizar el invocationId con el reportId (para trazabilidad)
   await db
     .update(schema.aiInvocations)
     .set({ related_report_id: reportId, output_parsed: parsed as unknown as Record<string, unknown> })
@@ -185,6 +229,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       itemCount: parsed.items.length,
       completeness_score: parsed.completeness_score,
       merge_strategy: parsed.merge_strategy,
+      hasPreviousWeekContext: previousWeekItems.length > 0,
+      hasQuotedContext: !!msg.quoted_body,
     },
     'report extracted',
   );

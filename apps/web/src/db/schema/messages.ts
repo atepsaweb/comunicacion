@@ -15,6 +15,12 @@ export const inboundMessages = appSchema.table('inbound_messages', {
   text_content: text('text_content'),
   audio_path: text('audio_path'),
   audio_duration_sec: integer('audio_duration_sec'),
+  // Soporte de documentos e imágenes (migración 0002)
+  mime_type: text('mime_type'),
+  document_path: text('document_path'),
+  // Threading de conversación: mensaje citado por el secretario (migración 0002)
+  quoted_wamid: text('quoted_wamid'),
+  quoted_body: text('quoted_body'),
   raw_payload: jsonb('raw_payload').notNull(),
   intent: messageIntentEnum('intent'),
   received_at: timestamp('received_at', { withTimezone: true }).notNull(),
@@ -48,9 +54,21 @@ export const outboundMessages = appSchema.table('outbound_messages', {
   error: text('error'),
 });
 
+// Extracción de texto de imágenes y documentos (migración 0002)
+export const documentExtractions = appSchema.table('document_extractions', {
+  id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
+  inbound_message_id: uuid('inbound_message_id').notNull().unique().references(() => inboundMessages.id, { onDelete: 'restrict' }),
+  text: text('text').notNull(),
+  // 'claude_vision' | 'pdf_extract' | 'docx_extract'
+  extraction_method: text('extraction_method').notNull(),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type InboundMessage = typeof inboundMessages.$inferSelect;
 export type NewInboundMessage = typeof inboundMessages.$inferInsert;
 export type Transcription = typeof transcriptions.$inferSelect;
 export type NewTranscription = typeof transcriptions.$inferInsert;
+export type DocumentExtraction = typeof documentExtractions.$inferSelect;
+export type NewDocumentExtraction = typeof documentExtractions.$inferInsert;
 export type OutboundMessage = typeof outboundMessages.$inferSelect;
 export type NewOutboundMessage = typeof outboundMessages.$inferInsert;

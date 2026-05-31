@@ -142,13 +142,35 @@ export type ExtractReportOutput = {
 export function buildExtractReportPrompt(params: {
   messageText: string;
   existingItems: { title: string; category: string }[];
+  // Memoria cross-week: ítems del ciclo anterior para detectar continuidades
+  previousWeekItems?: { title: string; category: string }[];
+  // Threading: mensaje citado por el secretario (puede aclarar el contexto)
+  quotedBody?: string | null;
 }): string {
-  const { messageText, existingItems } = params;
+  const { messageText, existingItems, previousWeekItems, quotedBody } = params;
 
-  const prevContext =
+  const sections: string[] = [];
+
+  // Memoria cross-week: contexto de la semana anterior
+  if (previousWeekItems && previousWeekItems.length > 0) {
+    sections.push(
+      `TEMAS REPORTADOS LA SEMANA ANTERIOR (para detectar continuidades o resoluciones):\n${JSON.stringify(previousWeekItems, null, 2)}\n\nSi el secretario menciona algo relacionado con estos temas, usá merge_strategy "update" y conectá la información nueva con el contexto previo.`,
+    );
+  }
+
+  // Contexto intra-ciclo: lo que ya reportó esta semana
+  sections.push(
     existingItems.length > 0
       ? `REPORTE PREVIO DEL SECRETARIO ESTE CICLO:\n${JSON.stringify(existingItems, null, 2)}`
-      : 'REPORTE PREVIO: ninguno';
+      : 'REPORTE PREVIO ESTE CICLO: ninguno',
+  );
 
-  return `${prevContext}\n\nNUEVO MENSAJE DEL SECRETARIO:\n"${messageText}"\n\nEstructurá los temas de este mensaje. Si es un mensaje de seguimiento, usá merge_strategy apropiado.`;
+  // Threading: mensaje que está citando
+  if (quotedBody) {
+    sections.push(`HILO DE CONVERSACIÓN — El secretario está respondiendo a este mensaje:\n"${quotedBody.slice(0, 400)}"`);
+  }
+
+  sections.push(`NUEVO MENSAJE DEL SECRETARIO:\n"${messageText}"\n\nEstructurá los temas de este mensaje. Si es un mensaje de seguimiento o continuación, usá merge_strategy apropiado.`);
+
+  return sections.join('\n\n');
 }

@@ -15,6 +15,7 @@ import { logger } from '@/lib/logger';
 
 type Body = { messageId: string };
 
+/** Resuelve el texto del mensaje independientemente de su tipo: texto, audio transcripto o documento extraído */
 async function resolveMessageText(
   msg: { id: string; kind: string; text_content: string | null },
 ): Promise<string | null> {
@@ -24,6 +25,14 @@ async function resolveMessageText(
       columns: { text: true },
     });
     return tx?.text ?? null;
+  }
+  if (msg.kind === 'other') {
+    // Imagen o documento procesado
+    const docEx = await db.query.documentExtractions.findFirst({
+      where: eq(schema.documentExtractions.inbound_message_id, msg.id),
+      columns: { text: true },
+    });
+    return docEx?.text ?? null;
   }
   return msg.text_content;
 }
@@ -40,7 +49,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const msg = await db.query.inboundMessages.findFirst({
     where: eq(schema.inboundMessages.id, messageId),
-    columns: { id: true, kind: true, text_content: true, cycle_id: true, user_id: true },
+    columns: {
+      id: true,
+      kind: true,
+      text_content: true,
+      cycle_id: true,
+      user_id: true,
+      quoted_body: true,   // Threading: texto del mensaje citado
+    },
   });
 
   if (!msg) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
@@ -71,7 +87,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     purpose: 'classify_intent',
     model: CLASSIFY_INTENT_MODEL,
     systemBlocks: [{ text: systemText, cache: true }],
-    userContent: buildClassifyIntentPrompt(text, hasAwaitingFollowup),
+    userContent: buildClassifyIntentPrompt(text, hasAwaitingFollowup, msg.quoted_body ?? undefined),
     relatedCycleId: msg.cycle_id ?? undefined,
     promptId: dbPrompt?.id,
   });
@@ -90,7 +106,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .where(eq(schema.inboundMessages.id, messageId));
 
   logger.info(
-    { messageId, intent: parsed.intent, confidence: parsed.confidence, hasAwaitingFollowup },
+    { messageId, intent: parsed.intent, confidence: parsed.confidence, hasAwaitingFollowup, hasQuotedMsg: !!msg.quoted_body },
     'intent classified',
   );
 

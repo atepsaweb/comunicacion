@@ -3,3 +3,5 @@ uvicorn[standard]==0.30.6
 faster-whisper==1.0.3
 requests>=2.31.0
 huggingface-hub>=0.23.0
+pdfplumber>=0.11.0
+python-docx>=1.1.0
