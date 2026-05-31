@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
-import { extractTextFromImage } from '@/lib/ai/vision';
+import { extractTextFromImage, extractTextFromPdf } from '@/lib/ai/vision';
 import { logger } from '@/lib/logger';
 
 const TRANSCRIBER_URL = process.env.TRANSCRIBER_URL ?? 'http://transcriber:8000';
@@ -88,9 +88,21 @@ export async function POST(
     extractedText = text;
     method = 'claude_vision';
   } else if (DOCUMENT_MIMES.has(msg.mime_type)) {
-    // PDF / Word → transcriber service
+    // PDF / Word → transcriber service (extrae texto embebido)
     extractedText = await extractDocumentText(msg.document_path, msg.mime_type);
     method = msg.mime_type === 'application/pdf' ? 'pdf_extract' : 'docx_extract';
+
+    // PDF escaneado (sin texto embebido) → fallback a Claude Vision
+    if (!extractedText.trim() && msg.mime_type === 'application/pdf') {
+      logger.info({ messageId: msg.id }, 'pdf empty after pdfplumber — falling back to claude vision');
+      const { text } = await extractTextFromPdf({
+        pdfPath: msg.document_path,
+        messageId: msg.id,
+        cycleId: msg.cycle_id ?? undefined,
+      });
+      extractedText = text;
+      method = 'claude_vision_pdf';
+    }
   } else {
     return NextResponse.json({ error: 'Unsupported mime type', mimeType: msg.mime_type }, { status: 422 });
   }
