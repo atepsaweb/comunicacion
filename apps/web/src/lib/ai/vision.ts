@@ -155,11 +155,11 @@ export async function extractTextFromPdf(params: {
         {
           role: 'user',
           content: [
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             {
               type: 'document',
               source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
-            } as any,
+              // Cast necesario: el SDK de Anthropic aún no tipea 'document' en todos los modelos
+            } as Anthropic.Messages.MessageParam['content'][0],
             {
               type: 'text',
               text: 'Extraé todo el texto de este documento escaneado.',
