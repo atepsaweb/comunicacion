@@ -147,26 +147,29 @@ export async function extractTextFromPdf(params: {
   let aiError: string | undefined;
 
   try {
+    // El SDK de Anthropic no tipea 'document' content blocks en todas las versiones.
+    // Casteamos el array de messages para evitar el error de tipo.
+    const pdfMessages = [
+      {
+        role: 'user' as const,
+        content: [
+          {
+            type: 'document',
+            source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
+          },
+          {
+            type: 'text',
+            text: 'Extraé todo el texto de este documento escaneado.',
+          },
+        ],
+      },
+    ] as Anthropic.Messages.MessageParam[];
+
     const response = await anthropic.messages.create({
       model: VISION_MODEL,
       max_tokens: 2048,
       system: PDF_SYSTEM,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
-              // Cast necesario: el SDK de Anthropic aún no tipea 'document' en todos los modelos
-            } as Anthropic.Messages.MessageParam['content'][0],
-            {
-              type: 'text',
-              text: 'Extraé todo el texto de este documento escaneado.',
-            },
-          ],
-        },
-      ],
+      messages: pdfMessages,
     });
 
     outputText = response.content[0]?.type === 'text' ? response.content[0].text : '';
