@@ -36,7 +36,7 @@ services:
       WHATSAPP_DEFAULT_ENGINE: WEBJS
       WHATSAPP_API_KEY: ${WPPCONNECT_SECRET_KEY}
       WHATSAPP_HOOK_URL: https://n8n.atepsa.org.ar/webhook/whatsapp-inbound
-      WHATSAPP_HOOK_EVENTS: message,message.any,session.status
+      WHATSAPP_HOOK_EVENTS: message,session.status
       WHATSAPP_DOWNLOAD_MEDIA: "true"
       WAHA_LOG_LEVEL: error
       TZ: America/Argentina/Buenos_Aires
@@ -115,6 +115,7 @@ services:
       TZ: America/Argentina/Buenos_Aires
     volumes:
       - audio-data:/data/audio
+      - documents-data:/data/documents
     networks:
       - atepsa-rep
     healthcheck:

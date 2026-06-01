@@ -123,7 +123,13 @@ export default async function MisMensajesPage() {
                     </div>
                   )}
 
-                  {msg.kind === 'other' && !msg.document_text && (
+                  {msg.kind === 'other' && !msg.document_text && msg.processed_at && (
+                    <p className="text-sm text-red-400 italic">
+                      No se pudo extraer el contenido del archivo.
+                    </p>
+                  )}
+
+                  {msg.kind === 'other' && !msg.document_text && !msg.processed_at && (
                     <p className="text-sm text-zinc-400 italic">
                       Extrayendo contenido...
                     </p>

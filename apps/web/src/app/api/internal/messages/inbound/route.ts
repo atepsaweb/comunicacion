@@ -180,34 +180,56 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  const [msg] = await db
-    .insert(schema.inboundMessages)
-    .values({
-      provider: 'waha',
-      provider_message_id: payload.id,
-      from_phone_e164: fromPhone,
-      user_id: user.id,
-      cycle_id: cycle?.id ?? null,
-      kind,
-      mime_type: mimeType,
-      text_content: kind === 'text' ? (payload.body ?? null) : null,
-      audio_path: audioPath,
-      document_path: documentPath,
-      quoted_wamid: quotedWamid,
-      quoted_body: quotedBody,
-      raw_payload: body,
-      received_at: receivedAt,
-    })
-    .returning({
-      id: schema.inboundMessages.id,
-      kind: schema.inboundMessages.kind,
-      mime_type: schema.inboundMessages.mime_type,
-      audio_path: schema.inboundMessages.audio_path,
-      document_path: schema.inboundMessages.document_path,
-      user_id: schema.inboundMessages.user_id,
-      cycle_id: schema.inboundMessages.cycle_id,
-      text_content: schema.inboundMessages.text_content,
-    });
+  let msg: {
+    id: string;
+    kind: 'text' | 'audio' | 'other';
+    mime_type: string | null;
+    audio_path: string | null;
+    document_path: string | null;
+    user_id: string | null;
+    cycle_id: string | null;
+    text_content: string | null;
+  };
+
+  try {
+    const [inserted] = await db
+      .insert(schema.inboundMessages)
+      .values({
+        provider: 'waha',
+        provider_message_id: payload.id,
+        from_phone_e164: fromPhone,
+        user_id: user.id,
+        cycle_id: cycle?.id ?? null,
+        kind,
+        mime_type: mimeType,
+        text_content: kind === 'text' ? (payload.body ?? null) : null,
+        audio_path: audioPath,
+        document_path: documentPath,
+        quoted_wamid: quotedWamid,
+        quoted_body: quotedBody,
+        raw_payload: body,
+        received_at: receivedAt,
+      })
+      .returning({
+        id: schema.inboundMessages.id,
+        kind: schema.inboundMessages.kind,
+        mime_type: schema.inboundMessages.mime_type,
+        audio_path: schema.inboundMessages.audio_path,
+        document_path: schema.inboundMessages.document_path,
+        user_id: schema.inboundMessages.user_id,
+        cycle_id: schema.inboundMessages.cycle_id,
+        text_content: schema.inboundMessages.text_content,
+      });
+    msg = inserted;
+  } catch (err) {
+    // Violación de unique constraint (código 23505): llegaron dos webhooks simultáneos
+    // para el mismo mensaje (e.g. message + message.any). El segundo se descarta.
+    if (err instanceof Error && 'code' in err && (err as { code: string }).code === '23505') {
+      logger.warn({ waMessageId: payload.id }, 'inbound: unique constraint — descartado segundo webhook');
+      return NextResponse.json({ discarded: true, reason: 'duplicado' });
+    }
+    throw err;
+  }
 
   logger.info(
     { msgId: msg.id, userId: msg.user_id, kind: msg.kind, mimeType, fromPhone },

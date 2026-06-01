@@ -117,6 +117,12 @@ export async function POST(
     extraction_method: method,
   });
 
+  // Marcar el mensaje como procesado para que el UI distinga "procesando" de "listo"
+  await db
+    .update(schema.inboundMessages)
+    .set({ processed_at: new Date() })
+    .where(eq(schema.inboundMessages.id, messageId));
+
   logger.info(
     { messageId, method, chars: extractedText.length, userId: msg.user_id },
     'document extraction stored',
