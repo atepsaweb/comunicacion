@@ -9,11 +9,22 @@ function toChatId(phoneE164: string): string {
   return `${phoneE164.replace('+', '')}@c.us`;
 }
 
+/** Envía texto a un número individual (E.164). */
 export async function sendWhatsAppText(phoneE164: string, text: string): Promise<void> {
+  await sendWhatsAppToChatId(toChatId(phoneE164), text);
+  logger.info({ phoneE164 }, 'whatsapp message sent');
+}
+
+/**
+ * Envía texto a un chatId arbitrario de WhatsApp.
+ * Sirve tanto para chats individuales (@c.us) como para grupos (@g.us).
+ * El chatId de un grupo tiene la forma "120363xxxxxxxxxx@g.us".
+ */
+export async function sendWhatsAppToChatId(chatId: string, text: string): Promise<void> {
   const url = `${WAHA_URL}/api/sendText`;
   const body = {
     session: WAHA_SESSION,
-    chatId: toChatId(phoneE164),
+    chatId,
     text,
   };
 
@@ -28,9 +39,7 @@ export async function sendWhatsAppText(phoneE164: string, text: string): Promise
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    logger.error({ status: res.status, detail, phoneE164 }, 'waha sendText failed');
+    logger.error({ status: res.status, detail, chatId }, 'waha sendText failed');
     throw new Error(`WAHA sendText failed: ${res.status}`);
   }
-
-  logger.info({ phoneE164 }, 'whatsapp message sent');
 }
