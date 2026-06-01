@@ -26,7 +26,7 @@ const navItems: NavItem[] = [
   { label: 'Prompts IA', href: '/admin/prompts', icon: MessageSquare, roles: ['press_admin'] },
   { label: 'Glosario IA', href: '/admin/glosario', icon: BookOpen, roles: ['press_admin'] },
   { label: 'Logs IA', href: '/admin/logs/ia', icon: Activity, roles: ['press_admin'] },
-  { label: 'Logs Auditoría', href: '/admin/logs/audit', icon: ClipboardList, roles: ['press_admin'] },
+  // Logs Auditoría: tabla existe pero sin instrumentación aún — oculto del sidebar
   { label: 'Configuración', href: '/admin/settings', icon: Settings, roles: ['press_admin'] },
 ];
 
