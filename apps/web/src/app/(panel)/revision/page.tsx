@@ -23,18 +23,24 @@ export default async function RevisionPage({
     limit: 24,
   });
 
-  // Ciclo a mostrar: el del queryParam, o el más reciente no-pending
+  // Ciclo a mostrar: el del queryParam, o el más reciente que NO esté publicado
+  // (los publicados desaparecen de la vista principal — se acceden desde el archivo)
   const requestedId = typeof searchParams.cycleId === 'string' ? searchParams.cycleId : null;
   const cycle = requestedId
     ? (allCycles.find(c => c.id === requestedId) ?? allCycles[0])
-    : (allCycles[0]);
+    : allCycles.find(c => c.status !== 'published');
 
   if (!cycle) {
     return (
       <div className="max-w-3xl space-y-6">
         <h1 className="text-2xl font-bold text-zinc-900">Revisión</h1>
         <p className="text-zinc-500 text-sm">
-          No hay ciclos activos. El sistema crea uno automáticamente al inicio de cada semana.
+          No hay semana activa en este momento.{' '}
+          {allCycles.length > 0 && (
+            <a href="/reportes" className="underline hover:text-zinc-800">
+              Ver archivo de semanas anteriores →
+            </a>
+          )}
         </p>
       </div>
     );
@@ -93,6 +99,7 @@ export default async function RevisionPage({
           : null
       }
       publications={publicationsWithContent}
+      isHistoryView={requestedId !== null}
       allCycles={allCycles.map(c => ({
         id: c.id,
         isoWeek: c.iso_week,

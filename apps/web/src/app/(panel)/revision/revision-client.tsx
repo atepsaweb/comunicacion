@@ -95,6 +95,7 @@ interface Props {
   consolidation: Consolidation | null;
   publications: Publication[];
   allCycles: PastCycle[];
+  isHistoryView: boolean; // true cuando se navega a un ciclo pasado vía ?cycleId=
 }
 
 export function RevisionClient({
@@ -102,6 +103,7 @@ export function RevisionClient({
   consolidation: initialConsolidation,
   publications: initialPublications,
   allCycles,
+  isHistoryView,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -140,9 +142,12 @@ export function RevisionClient({
   const canProcess = cycle.status === 'open' || cycle.status === 'closed' || cycle.status === 'processed';
   const hasProcessed = cycle.status === 'processed' || cycle.status === 'published';
 
-  // Contadores para "Finalizar semana"
-  const approvedCount = publications.filter(p => p.status === 'approved').length;
-  const pendingCount = publications.filter(p => p.status === 'draft' || p.status === 'in_review').length;
+  // Publicaciones visibles: las descartadas desaparecen de la lista
+  const visiblePublications = publications.filter(p => p.status !== 'discarded');
+
+  // Contadores para "Marcar como Enviado" (excluye descartadas — ya decididas)
+  const approvedCount = visiblePublications.filter(p => p.status === 'approved').length;
+  const pendingCount = visiblePublications.filter(p => p.status === 'draft' || p.status === 'in_review').length;
 
   // ─── Acciones de ciclo ──────────────────────────────────────────────────────
 
@@ -333,17 +338,17 @@ export function RevisionClient({
           )}
 
           {/* Finalizar semana */}
-          {hasProcessed && !cyclePublished && (
+          {hasProcessed && !cyclePublished && !isHistoryView && (
             <button
               onClick={handlePublish}
               disabled={publishPending || isPending}
               className="px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-md hover:bg-green-800 disabled:opacity-50 transition-colors"
             >
               {publishPending
-                ? 'Finalizando…'
+                ? 'Marcando…'
                 : pendingCount > 0
-                  ? `Finalizar semana (${approvedCount} aprobadas, ${pendingCount} pendientes)`
-                  : `Finalizar semana (${approvedCount} aprobadas)`}
+                  ? `Marcar como Enviado (${approvedCount} ✓, ${pendingCount} pendientes)`
+                  : `Marcar como Enviado (${approvedCount} aprobadas)`}
             </button>
           )}
 
@@ -472,13 +477,23 @@ export function RevisionClient({
         </Card>
       )}
 
+      {/* ── Confirmación post-envío ─────────────────────────────────────────── */}
+      {cyclePublished && !isHistoryView && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-800 print:hidden flex items-center justify-between gap-4">
+          <span>✓ Semana marcada como enviada. Ya no aparece en la vista principal.</span>
+          <Link href="/reportes" className="text-green-700 font-medium underline underline-offset-2 hover:text-green-900 shrink-0">
+            Ver archivo →
+          </Link>
+        </div>
+      )}
+
       {/* ── Publicaciones ───────────────────────────────────────────────────── */}
-      {publications.length > 0 && (
+      {visiblePublications.length > 0 && (
         <div className="space-y-3 print:hidden">
           <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">
             Borradores de publicación
           </h2>
-          {publications.map(pub => (
+          {visiblePublications.map(pub => (
             <Card key={pub.id}>
               <CardContent className="py-4 px-5 space-y-3">
 
