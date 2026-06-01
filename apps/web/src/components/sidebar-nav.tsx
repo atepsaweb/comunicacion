@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import {
@@ -53,13 +52,11 @@ export function SidebarNav({ role, fullName }: Props) {
 
       {/* Logo + usuario */}
       <div className="px-5 py-5 border-b border-white/10">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/logo-atepsa.png"
           alt="ATEPSA"
-          width={120}
-          height={32}
-          className="object-contain"
-          priority
+          className="h-8 w-auto object-contain"
         />
         <p className="text-xs text-white/50 mt-2 truncate">{fullName}</p>
       </div>
