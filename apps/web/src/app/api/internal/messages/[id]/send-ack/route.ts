@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, { params }: Props): Promise<NextRes
 
   const ackText = cycle
     ? `✓ Recibido. Tu reporte de la semana ${cycle.iso_week}/${cycle.year} quedó actualizado.`
-    : '✓ Recibido. Tu mensaje quedó registrado.';
+    : '✓ Recibido. No hay un ciclo activo en este momento — tu mensaje quedó guardado para cuando abra la próxima semana.';
 
   try {
     await sendWhatsAppText(user.phone_e164, ackText);
