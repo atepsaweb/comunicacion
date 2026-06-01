@@ -1,36 +1,46 @@
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
-import { desc } from 'drizzle-orm';
+import { desc, inArray } from 'drizzle-orm';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { RevisionClient } from './revision-client';
 
-export default async function RevisionPage() {
+export default async function RevisionPage({
+  searchParams,
+}: {
+  searchParams: Record<string, string | string[] | undefined>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session) redirect('/login');
   if (session.user.role !== 'press_admin') notFound();
 
-  // Ciclo más reciente que tenga alguna actividad
-  const cycles = await db.query.weeklyCycles.findMany({
+  // Todos los ciclos no-pending para navegación (últimos 24)
+  const allCycles = await db.query.weeklyCycles.findMany({
+    where: inArray(schema.weeklyCycles.status, ['open', 'closed', 'processed', 'published']),
     columns: { id: true, iso_week: true, year: true, status: true, starts_at: true, ends_at: true },
     orderBy: [desc(schema.weeklyCycles.starts_at)],
-    limit: 5,
+    limit: 24,
   });
 
-  // Tomar el más reciente que no sea 'pending'
-  const cycle = cycles.find(c => c.status !== 'pending') ?? cycles[0];
+  // Ciclo a mostrar: el del queryParam, o el más reciente no-pending
+  const requestedId = typeof searchParams.cycleId === 'string' ? searchParams.cycleId : null;
+  const cycle = requestedId
+    ? (allCycles.find(c => c.id === requestedId) ?? allCycles[0])
+    : (allCycles[0]);
 
   if (!cycle) {
     return (
       <div className="max-w-3xl space-y-6">
         <h1 className="text-2xl font-bold text-zinc-900">Revisión</h1>
-        <p className="text-zinc-500 text-sm">No hay ciclos activos. El sistema crea uno automáticamente al inicio de cada semana.</p>
+        <p className="text-zinc-500 text-sm">
+          No hay ciclos activos. El sistema crea uno automáticamente al inicio de cada semana.
+        </p>
       </div>
     );
   }
 
-  // Consolidación del ciclo
+  // Consolidación del ciclo seleccionado
   const consolidation = await db.query.consolidations.findFirst({
     where: (c, { eq }) => eq(c.cycle_id, cycle.id),
     columns: { id: true, internal_summary_md: true, status: true, generated_at: true },
@@ -43,13 +53,12 @@ export default async function RevisionPage() {
     orderBy: [schema.publications.kind],
   });
 
-  // Versiones actuales de cada publicación
   const versionIds = publications.map(p => p.current_version_id).filter(Boolean) as string[];
 
   let versionMap = new Map<string, string>();
   if (versionIds.length > 0) {
     const versions = await db.query.publicationVersions.findMany({
-      where: (v, { inArray }) => inArray(v.id, versionIds),
+      where: (v, { inArray: inArr }) => inArr(v.id, versionIds),
       columns: { id: true, body_md: true },
     });
     versionMap = new Map(versions.map(v => [v.id, v.body_md]));
@@ -84,6 +93,13 @@ export default async function RevisionPage() {
           : null
       }
       publications={publicationsWithContent}
+      allCycles={allCycles.map(c => ({
+        id: c.id,
+        isoWeek: c.iso_week,
+        year: c.year,
+        status: c.status,
+        startsAt: c.starts_at.toISOString(),
+      }))}
     />
   );
 }

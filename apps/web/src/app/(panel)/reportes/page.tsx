@@ -1,12 +1,14 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
-import { eq, desc } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 
-const statusLabel: Record<string, string> = {
+// ─── Vista personal (secretario / ejecutivo) ─────────────────────────────────
+
+const reportStatusLabel: Record<string, string> = {
   draft: 'Borrador',
   awaiting_followup: 'En seguimiento',
   complete: 'Completo',
@@ -15,7 +17,7 @@ const statusLabel: Record<string, string> = {
   no_report: 'Sin reporte',
 };
 
-const statusColor: Record<string, string> = {
+const reportStatusColor: Record<string, string> = {
   draft: 'text-yellow-600 bg-yellow-50',
   awaiting_followup: 'text-blue-600 bg-blue-50',
   complete: 'text-green-600 bg-green-50',
@@ -24,10 +26,144 @@ const statusColor: Record<string, string> = {
   no_report: 'text-red-500 bg-red-50',
 };
 
+// ─── Vista admin (press_admin) ────────────────────────────────────────────────
+
+const cycleStatusLabel: Record<string, string> = {
+  open: 'Abierto',
+  closed: 'Cerrado',
+  processed: 'Procesado',
+  published: 'Publicado',
+};
+
+const cycleStatusColor: Record<string, string> = {
+  open: 'text-green-700 bg-green-50',
+  closed: 'text-yellow-700 bg-yellow-50',
+  processed: 'text-blue-700 bg-blue-50',
+  published: 'text-zinc-600 bg-zinc-100',
+};
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default async function ReportesPage() {
   const session = await getServerSession(authOptions);
   if (!session) return null;
 
+  // ── press_admin: archivo histórico de ciclos ──────────────────────────────
+  if (session.user.role === 'press_admin') {
+    const cycles = await db.query.weeklyCycles.findMany({
+      where: inArray(schema.weeklyCycles.status, ['open', 'closed', 'processed', 'published']),
+      columns: {
+        id: true,
+        iso_week: true,
+        year: true,
+        status: true,
+        starts_at: true,
+        ends_at: true,
+        processed_at: true,
+      },
+      orderBy: [desc(schema.weeklyCycles.starts_at)],
+      limit: 52, // ~1 año
+    });
+
+    // Conteo de reportes por ciclo
+    const cycleIds = cycles.map(c => c.id);
+    const reports =
+      cycleIds.length > 0
+        ? await db.query.reports.findMany({
+            where: and(
+              inArray(schema.reports.cycle_id, cycleIds),
+              ne(schema.reports.status, 'no_report'),
+            ),
+            columns: { cycle_id: true },
+          })
+        : [];
+
+    const reportsByCycle = new Map<string, number>();
+    for (const r of reports) {
+      reportsByCycle.set(r.cycle_id, (reportsByCycle.get(r.cycle_id) ?? 0) + 1);
+    }
+
+    // Total activos
+    const activeUsers = await db.query.users.findMany({
+      where: and(
+        eq(schema.users.is_active, true),
+        inArray(schema.users.role, ['secretary', 'executive']),
+      ),
+      columns: { id: true },
+    });
+    const totalActive = activeUsers.length;
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900">Archivo de semanas</h1>
+          <p className="text-zinc-500 mt-1 text-sm">
+            Historial de ciclos semanales. Hacé clic en una semana para ver su revisión.
+          </p>
+        </div>
+
+        {cycles.length === 0 ? (
+          <Card className="border-dashed">
+            <CardContent className="py-12 text-center">
+              <p className="text-zinc-400 text-sm">No hay ciclos registrados todavía.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <ul className="space-y-2">
+            {cycles.map(c => {
+              const count = reportsByCycle.get(c.id) ?? 0;
+              const pct = totalActive > 0 ? Math.round((count / totalActive) * 100) : 0;
+              return (
+                <li key={c.id}>
+                  <Link href={`/revision?cycleId=${c.id}`}>
+                    <Card className="hover:border-zinc-400 transition-colors cursor-pointer">
+                      <CardContent className="py-3 px-5 flex items-center gap-4">
+
+                        {/* Semana + rango */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-zinc-800 text-sm">
+                            Semana {c.iso_week}/{c.year}
+                          </p>
+                          <p className="text-xs text-zinc-400">
+                            {new Date(c.starts_at).toLocaleDateString('es-AR', {
+                              day: '2-digit', month: '2-digit',
+                              timeZone: 'America/Argentina/Buenos_Aires',
+                            })}
+                            {' – '}
+                            {new Date(c.ends_at).toLocaleDateString('es-AR', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              timeZone: 'America/Argentina/Buenos_Aires',
+                            })}
+                          </p>
+                        </div>
+
+                        {/* Participación */}
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-medium text-zinc-700">{count}/{totalActive}</p>
+                          <p className="text-xs text-zinc-400">{pct}% reportaron</p>
+                        </div>
+
+                        {/* Estado */}
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${cycleStatusColor[c.status] ?? 'bg-zinc-100 text-zinc-500'}`}
+                        >
+                          {cycleStatusLabel[c.status] ?? c.status}
+                        </span>
+
+                        <span className="text-zinc-300 text-xs shrink-0">→</span>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  // ── secretary / executive: reportes personales ────────────────────────────
   const rows = await db
     .select({
       id: schema.reports.id,
@@ -69,19 +205,11 @@ export default async function ReportesPage() {
             const score = r.completeness_score != null ? Number(r.completeness_score) : null;
             const scoreText =
               score != null
-                ? score >= 0.7
-                  ? 'Completo'
-                  : score >= 0.4
-                    ? 'Parcial'
-                    : 'Escueto'
+                ? score >= 0.7 ? 'Completo' : score >= 0.4 ? 'Parcial' : 'Escueto'
                 : null;
             const scoreColor =
               score != null
-                ? score >= 0.7
-                  ? 'text-green-600'
-                  : score >= 0.4
-                    ? 'text-yellow-600'
-                    : 'text-red-500'
+                ? score >= 0.7 ? 'text-green-600' : score >= 0.4 ? 'text-yellow-600' : 'text-red-500'
                 : '';
 
             return (
@@ -93,24 +221,18 @@ export default async function ReportesPage() {
                         <p className="font-medium text-zinc-800 text-sm">
                           Semana {r.cycle_iso_week}/{r.cycle_year} —{' '}
                           {new Date(r.cycle_starts_at).toLocaleDateString('es-AR', {
-                            day: '2-digit',
-                            month: '2-digit',
+                            day: '2-digit', month: '2-digit',
                           })}{' '}
                           al{' '}
                           {new Date(r.cycle_ends_at).toLocaleDateString('es-AR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
+                            day: '2-digit', month: '2-digit', year: 'numeric',
                           })}
                         </p>
                         {r.last_message_at && (
                           <p className="text-xs text-zinc-400">
                             Último mensaje:{' '}
                             {new Date(r.last_message_at).toLocaleString('es-AR', {
-                              day: '2-digit',
-                              month: '2-digit',
-                              hour: '2-digit',
-                              minute: '2-digit',
+                              day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
                             })}
                           </p>
                         )}
@@ -120,9 +242,9 @@ export default async function ReportesPage() {
                           <span className={`text-xs font-medium ${scoreColor}`}>{scoreText}</span>
                         )}
                         <span
-                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${statusColor[r.status] ?? 'text-zinc-500 bg-zinc-100'}`}
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${reportStatusColor[r.status] ?? 'text-zinc-500 bg-zinc-100'}`}
                         >
-                          {statusLabel[r.status] ?? r.status}
+                          {reportStatusLabel[r.status] ?? r.status}
                         </span>
                       </div>
                     </CardContent>

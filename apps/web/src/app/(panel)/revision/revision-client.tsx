@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 
 const kindLabel: Record<string, string> = {
@@ -35,6 +36,13 @@ const cycleStatusLabel: Record<string, string> = {
   published: 'Publicado',
 };
 
+const cycleStatusColor: Record<string, string> = {
+  open: 'bg-green-50 text-green-700',
+  closed: 'bg-yellow-50 text-yellow-700',
+  processed: 'bg-blue-50 text-blue-700',
+  published: 'bg-zinc-100 text-zinc-600',
+};
+
 type Publication = {
   id: string;
   kind: string;
@@ -59,13 +67,27 @@ type Cycle = {
   endsAt: string;
 };
 
+type PastCycle = {
+  id: string;
+  isoWeek: number;
+  year: number;
+  status: string;
+  startsAt: string;
+};
+
 interface Props {
   cycle: Cycle;
   consolidation: Consolidation | null;
   publications: Publication[];
+  allCycles: PastCycle[];
 }
 
-export function RevisionClient({ cycle, consolidation: initialConsolidation, publications: initialPublications }: Props) {
+export function RevisionClient({
+  cycle,
+  consolidation: initialConsolidation,
+  publications: initialPublications,
+  allCycles,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [processing, setProcessing] = useState(false);
@@ -87,8 +109,19 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
   const [savingConsolidation, setSavingConsolidation] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
 
+  // Estado ciclo
+  const [cyclePublished, setCyclePublished] = useState(cycle.status === 'published');
+  const [publishPending, setPublishPending] = useState(false);
+
+  // Estado historial
+  const [showHistory, setShowHistory] = useState(false);
+
   const canProcess = cycle.status === 'open' || cycle.status === 'closed' || cycle.status === 'processed';
   const hasProcessed = cycle.status === 'processed' || cycle.status === 'published';
+
+  // Contadores para "Finalizar semana"
+  const approvedCount = publications.filter(p => p.status === 'approved').length;
+  const pendingCount = publications.filter(p => p.status === 'draft' || p.status === 'in_review').length;
 
   // ─── Acciones de ciclo ──────────────────────────────────────────────────────
 
@@ -107,6 +140,19 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
       setProcessError('Error de red al procesar el ciclo.');
     } finally {
       setProcessing(false);
+    }
+  }
+
+  async function handlePublish() {
+    setPublishPending(true);
+    try {
+      const res = await fetch(`/api/cycles/${cycle.id}/publish`, { method: 'POST' });
+      if (res.ok) {
+        setCyclePublished(true);
+        startTransition(() => router.refresh());
+      }
+    } finally {
+      setPublishPending(false);
     }
   }
 
@@ -211,32 +257,67 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
-  const startDate = new Date(cycle.startsAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'long' });
-  const endDate = new Date(cycle.endsAt).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const startDate = new Date(cycle.startsAt).toLocaleDateString('es-AR', {
+    day: '2-digit', month: 'long',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
+  const endDate = new Date(cycle.endsAt).toLocaleDateString('es-AR', {
+    day: '2-digit', month: 'long', year: 'numeric',
+    timeZone: 'America/Argentina/Buenos_Aires',
+  });
+
+  const pastCycles = allCycles.filter(c => c.id !== cycle.id);
 
   return (
     <div className="space-y-6 max-w-4xl print:max-w-full">
-      {/* Encabezado — oculto en impresión */}
-      <div className="flex items-start justify-between print:hidden">
+
+      {/* ── Encabezado ─────────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between print:hidden gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-zinc-900">Revisión</h1>
           <p className="text-zinc-500 mt-1 text-sm">
             Semana {cycle.isoWeek}/{cycle.year} · {startDate} al {endDate}
-            <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 font-medium">
+            <span
+              className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${cycleStatusColor[cycle.status] ?? 'bg-zinc-100 text-zinc-600'}`}
+            >
               {cycleStatusLabel[cycle.status] ?? cycle.status}
             </span>
           </p>
         </div>
 
-        {canProcess && (
-          <button
-            onClick={handleProcess}
-            disabled={processing || isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-md hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
-          >
-            {processing ? 'Procesando…' : hasProcessed ? 'Reprocesar ciclo' : 'Procesar ciclo'}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          {/* Reprocesar — solo cuando no está publicado (o para republicar) */}
+          {canProcess && !cyclePublished && (
+            <button
+              onClick={handleProcess}
+              disabled={processing || isPending}
+              className="px-4 py-2 bg-zinc-900 text-white text-sm font-medium rounded-md hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+            >
+              {processing ? 'Procesando…' : hasProcessed ? 'Reprocesar ciclo' : 'Procesar ciclo'}
+            </button>
+          )}
+
+          {/* Finalizar semana */}
+          {hasProcessed && !cyclePublished && (
+            <button
+              onClick={handlePublish}
+              disabled={publishPending || isPending}
+              className="px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-md hover:bg-green-800 disabled:opacity-50 transition-colors"
+            >
+              {publishPending
+                ? 'Finalizando…'
+                : pendingCount > 0
+                  ? `Finalizar semana (${approvedCount} aprobadas, ${pendingCount} pendientes)`
+                  : `Finalizar semana (${approvedCount} aprobadas)`}
+            </button>
+          )}
+
+          {cyclePublished && (
+            <span className="text-sm text-green-700 font-medium px-3 py-2 bg-green-50 rounded-md border border-green-200">
+              ✓ Semana finalizada
+            </span>
+          )}
+        </div>
       </div>
 
       {processError && (
@@ -255,7 +336,6 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
       {consolidation && (
         <Card>
           <CardContent className="py-4 px-5 space-y-3">
-            {/* Header */}
             <div className="flex items-center justify-between print:hidden">
               <h2 className="font-semibold text-zinc-900 text-sm">Consolidado interno</h2>
               <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -299,7 +379,6 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
               </div>
             </div>
 
-            {/* Contenido del consolidado */}
             {editingConsolidation ? (
               <div className="space-y-3">
                 <textarea
@@ -333,7 +412,6 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
         </Card>
       )}
 
-      {/* Sin consolidación */}
       {!consolidation && (
         <Card className="border-dashed print:hidden">
           <CardContent className="py-8 text-center">
@@ -348,25 +426,55 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
 
       {/* ── Publicaciones ───────────────────────────────────────────────────── */}
       {publications.length > 0 && (
-        <div className="space-y-4 print:hidden">
+        <div className="space-y-3 print:hidden">
           <h2 className="text-sm font-semibold text-zinc-500 uppercase tracking-wider">
             Borradores de publicación
           </h2>
           {publications.map(pub => (
             <Card key={pub.id}>
               <CardContent className="py-4 px-5 space-y-3">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-medium text-zinc-900 text-sm">
-                      {kindLabel[pub.kind] ?? pub.kind}
-                    </h3>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[pub.status] ?? 'bg-zinc-100 text-zinc-500'}`}
-                    >
-                      {statusLabel[pub.status] ?? pub.status}
-                    </span>
-                  </div>
+
+                {/* ── Card header: nombre + estado + botones rápidos ── */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h3 className="font-medium text-zinc-900 text-sm shrink-0">
+                    {kindLabel[pub.kind] ?? pub.kind}
+                  </h3>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${statusColor[pub.status] ?? 'bg-zinc-100 text-zinc-500'}`}
+                  >
+                    {statusLabel[pub.status] ?? pub.status}
+                  </span>
+
+                  {/* Spacer */}
+                  <div className="flex-1" />
+
+                  {/* Botones rápidos — visibles sin expandir */}
+                  {pub.status !== 'approved' && pub.status !== 'discarded' && editingPubId !== pub.id && (
+                    <>
+                      <button
+                        onClick={() => handleApprove(pub.id)}
+                        disabled={actionPending !== null}
+                        className="px-3 py-1 bg-green-700 text-white text-xs font-medium rounded hover:bg-green-800 disabled:opacity-50 transition-colors shrink-0"
+                      >
+                        {actionPending === pub.id + '-approve' ? '…' : 'Aprobar'}
+                      </button>
+                      <button
+                        onClick={() => handleDiscard(pub.id)}
+                        disabled={actionPending !== null}
+                        className="px-3 py-1 bg-white border border-zinc-300 text-zinc-600 text-xs font-medium rounded hover:bg-zinc-50 disabled:opacity-50 transition-colors shrink-0"
+                      >
+                        {actionPending === pub.id + '-discard' ? '…' : 'Descartar'}
+                      </button>
+                    </>
+                  )}
+
+                  {pub.status === 'approved' && (
+                    <span className="text-xs text-green-700 font-medium shrink-0">✓ Aprobado</span>
+                  )}
+                  {pub.status === 'discarded' && (
+                    <span className="text-xs text-red-500 shrink-0">Descartado</span>
+                  )}
+
                   <button
                     onClick={() => {
                       if (expandedId === pub.id) {
@@ -376,15 +484,15 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
                         setExpandedId(pub.id);
                       }
                     }}
-                    className="text-xs text-zinc-500 hover:text-zinc-800 underline underline-offset-2"
+                    className="text-xs text-zinc-400 hover:text-zinc-700 underline underline-offset-2 shrink-0"
                   >
                     {expandedId === pub.id ? 'Cerrar' : 'Ver / Editar'}
                   </button>
                 </div>
 
-                {/* Contenido expandido */}
+                {/* ── Contenido expandido ── */}
                 {expandedId === pub.id && (
-                  <div className="space-y-3 pt-1">
+                  <div className="space-y-3 pt-1 border-t border-zinc-100">
                     {editingPubId === pub.id ? (
                       <>
                         <textarea
@@ -418,43 +526,13 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
                           onClick={() => startEditPub(pub)}
                           className="text-xs text-zinc-500 hover:text-zinc-800 underline underline-offset-2"
                         >
-                          Editar
+                          Editar contenido
                         </button>
                       </>
                     )}
-
-                    {/* Botones aprobar/descartar */}
-                    {pub.status !== 'approved' && pub.status !== 'discarded' && editingPubId !== pub.id && (
-                      <div className="flex items-center gap-2 pt-1 border-t border-zinc-100">
-                        <button
-                          onClick={() => handleApprove(pub.id)}
-                          disabled={actionPending !== null}
-                          className="px-3 py-1.5 bg-green-700 text-white text-xs font-medium rounded hover:bg-green-800 disabled:opacity-50 transition-colors"
-                        >
-                          {actionPending === pub.id + '-approve' ? 'Aprobando…' : 'Aprobar'}
-                        </button>
-                        <button
-                          onClick={() => handleDiscard(pub.id)}
-                          disabled={actionPending !== null}
-                          className="px-3 py-1 bg-white border border-zinc-300 text-zinc-600 text-xs font-medium rounded hover:bg-zinc-50 disabled:opacity-50 transition-colors"
-                        >
-                          {actionPending === pub.id + '-discard' ? 'Descartando…' : 'Descartar'}
-                        </button>
-                      </div>
-                    )}
-
-                    {pub.status === 'approved' && (
-                      <p className="text-xs text-green-700 font-medium pt-1">
-                        Aprobado — listo para copiar y publicar manualmente.
-                      </p>
-                    )}
-                    {pub.status === 'discarded' && (
-                      <p className="text-xs text-red-600 font-medium pt-1">
-                        Descartado.
-                      </p>
-                    )}
                   </div>
                 )}
+
               </CardContent>
             </Card>
           ))}
@@ -468,6 +546,48 @@ export function RevisionClient({ cycle, consolidation: initialConsolidation, pub
           </CardContent>
         </Card>
       )}
+
+      {/* ── Historial de semanas ─────────────────────────────────────────────── */}
+      {pastCycles.length > 0 && (
+        <div className="pt-4 border-t border-zinc-100 print:hidden">
+          <button
+            onClick={() => setShowHistory(h => !h)}
+            className="flex items-center gap-2 text-xs font-semibold text-zinc-400 uppercase tracking-wider hover:text-zinc-600 transition-colors"
+          >
+            <span>{showHistory ? '▾' : '▸'}</span>
+            Semanas anteriores ({pastCycles.length})
+          </button>
+
+          {showHistory && (
+            <ul className="mt-3 space-y-1">
+              {pastCycles.map(c => (
+                <li key={c.id}>
+                  <Link
+                    href={`/revision?cycleId=${c.id}`}
+                    className="flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-zinc-50 transition-colors"
+                  >
+                    <span className="text-zinc-700 font-medium">
+                      Semana {c.isoWeek}/{c.year}
+                    </span>
+                    <span className="text-zinc-400 text-xs">
+                      {new Date(c.startsAt).toLocaleDateString('es-AR', {
+                        day: '2-digit', month: '2-digit',
+                        timeZone: 'America/Argentina/Buenos_Aires',
+                      })}
+                    </span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full font-medium ${cycleStatusColor[c.status] ?? 'bg-zinc-100 text-zinc-500'}`}
+                    >
+                      {cycleStatusLabel[c.status] ?? c.status}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
