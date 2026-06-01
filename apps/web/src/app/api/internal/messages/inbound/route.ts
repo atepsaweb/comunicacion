@@ -86,6 +86,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ discarded: true, reason: 'non_message_event' });
   }
 
+  // Descartar mensajes internos de WhatsApp (notificaciones de sistema, cifrado, etc.)
+  // Estos llegan con event="message" pero no son mensajes de usuario y rompen el pipeline de IA.
+  const INTERNAL_WA_TYPES = new Set([
+    'e2e_notification',   // notificación de cifrado E2E (muy común al reconectar)
+    'notification_template',
+    'call_log',
+    'gp2',                // group participant changes
+    'revoked',            // mensaje eliminado
+    'ciphertext',         // cifrado pendiente de procesar
+  ]);
+  const rawType = payload.type ?? payload._data?.type ?? undefined;
+  if (rawType && INTERNAL_WA_TYPES.has(rawType)) {
+    return NextResponse.json({ discarded: true, reason: 'internal_wa_message', waType: rawType });
+  }
+
   // WhatsApp multi-device puede enviar from como LID (@lid) en vez de @c.us
   let fromPhone = normalizeE164(payload.from);
   if (payload.from.endsWith('@lid')) {
