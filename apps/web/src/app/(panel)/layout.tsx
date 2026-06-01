@@ -8,9 +8,9 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   if (!session) redirect('/login');
 
   return (
-    <div className="flex h-screen bg-zinc-100">
+    <div className="flex h-screen overflow-hidden bg-zinc-100">
       <SidebarNav role={session.user.role} fullName={session.user.full_name} />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto min-h-0">
         <div className="p-8">{children}</div>
       </main>
     </div>
