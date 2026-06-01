@@ -74,7 +74,7 @@ export function SettingsClient({ settings: initialSettings }: Props) {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Configuración del sistema</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Configuración del sistema</h1>
         <p className="text-zinc-500 mt-1 text-sm">
           Parámetros globales del sistema. Los valores se guardan como JSON.
         </p>

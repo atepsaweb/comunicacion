@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
+import { useEffect } from 'react';
 import {
   LayoutDashboard, FileText, CalendarOff, LogOut, Settings,
   Users, BarChart2, TrendingUp, ShieldCheck, Activity,
-  MessageSquare, BookOpen,
+  MessageSquare, BookOpen, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,27 +39,58 @@ const navItems: NavItem[] = [
 interface Props {
   role: string;
   fullName: string;
+  open?: boolean;
+  onClose?: () => void;
 }
 
-export function SidebarNav({ role, fullName }: Props) {
+export function SidebarNav({ role, fullName, open = false, onClose }: Props) {
   const pathname = usePathname();
 
   const visible = navItems.filter(
     (item) => !item.roles || item.roles.includes(role),
   );
 
-  return (
-    <aside className="w-56 flex flex-col shrink-0" style={{ backgroundColor: '#2E3863' }}>
+  // Bloquea el scroll del body mientras el drawer mobile esté abierto.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const original = document.body.style.overflow;
+    if (open) document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = original; };
+  }, [open]);
 
-      {/* Logo + usuario */}
-      <div className="px-5 py-5 border-b border-white/10">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo-atepsa.png"
-          alt="ATEPSA"
-          className="h-8 w-auto object-contain"
-        />
-        <p className="text-xs text-white/50 mt-2 truncate">{fullName}</p>
+  return (
+    <aside
+      className={cn(
+        'w-64 md:w-56 flex flex-col shrink-0',
+        // Mobile: drawer off-canvas
+        'fixed inset-y-0 left-0 z-50 transition-transform duration-200 ease-out',
+        open ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
+        // Desktop: estático, sin transform, sin shadow
+        'md:static md:translate-x-0 md:shadow-none',
+      )}
+      style={{ backgroundColor: '#2E3863' }}
+      aria-hidden={!open ? 'true' : undefined}
+    >
+
+      {/* Logo + usuario + cerrar (solo mobile) */}
+      <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-atepsa.png"
+            alt="ATEPSA"
+            className="h-8 w-auto object-contain"
+          />
+          <p className="text-xs text-white/50 mt-2 truncate">{fullName}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar menú"
+          className="md:hidden -mr-2 p-2 rounded-md text-white/70 hover:text-white hover:bg-white/10"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Nav */}
@@ -73,8 +105,9 @@ export function SidebarNav({ role, fullName }: Props) {
               )}
               <Link
                 href={item.href}
+                onClick={onClose}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors',
+                  'flex items-center gap-3 px-3 py-2.5 md:py-2 rounded-md text-sm transition-colors',
                   active
                     ? 'bg-white/15 text-white font-medium'
                     : 'text-white/65 hover:text-white hover:bg-white/8',
@@ -91,7 +124,7 @@ export function SidebarNav({ role, fullName }: Props) {
         <div className="mt-2 border-t border-white/10 pt-2">
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
-            className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm text-white/65 hover:text-white hover:bg-white/8 transition-colors"
+            className="flex items-center gap-3 w-full px-3 py-2.5 md:py-2 rounded-md text-sm text-white/65 hover:text-white hover:bg-white/8 transition-colors"
           >
             <LogOut className="h-4 w-4 shrink-0" />
             Cerrar sesión

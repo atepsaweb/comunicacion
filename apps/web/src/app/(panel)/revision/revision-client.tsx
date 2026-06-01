@@ -311,7 +311,7 @@ export function RevisionClient({
       {/* ── Encabezado ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between print:hidden gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Revisión</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Revisión</h1>
           <p className="text-zinc-500 mt-1 text-sm">
             Semana {cycle.isoWeek}/{cycle.year} · {startDate} al {endDate}
             {(() => {
@@ -375,8 +375,8 @@ export function RevisionClient({
       {/* ── Consolidado interno ─────────────────────────────────────────────── */}
       {consolidation && (
         <Card>
-          <CardContent className="py-4 px-5 space-y-3">
-            <div className="flex items-center justify-between print:hidden">
+          <CardContent className="py-4 px-4 sm:px-5 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 print:hidden">
               <h2 className="font-semibold text-zinc-900 text-sm">Consolidado interno</h2>
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <span className="text-xs text-zinc-400">
@@ -495,7 +495,7 @@ export function RevisionClient({
           </h2>
           {visiblePublications.map(pub => (
             <Card key={pub.id}>
-              <CardContent className="py-4 px-5 space-y-3">
+              <CardContent className="py-4 px-4 sm:px-5 space-y-3">
 
                 {/* ── Card header: nombre + estado + botones rápidos ── */}
                 <div className="flex items-center gap-3 flex-wrap">

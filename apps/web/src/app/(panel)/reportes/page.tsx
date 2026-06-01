@@ -115,7 +115,7 @@ export default async function ReportesPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Archivo de semanas</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Archivo de semanas</h1>
           <p className="text-zinc-500 mt-1 text-sm">
             Historial de ciclos semanales. Hacé clic en una semana para ver su revisión.
           </p>
@@ -137,7 +137,7 @@ export default async function ReportesPage() {
                 <li key={c.id}>
                   <Link href={`/revision?cycleId=${c.id}`}>
                     <Card className="hover:border-zinc-400 transition-colors cursor-pointer">
-                      <CardContent className="py-3 px-5 flex items-center gap-4">
+                      <CardContent className="py-3 px-4 sm:px-5 flex items-center gap-3 sm:gap-4">
 
                         {/* Semana + rango */}
                         <div className="flex-1 min-w-0">
@@ -160,7 +160,7 @@ export default async function ReportesPage() {
                         {/* Participación */}
                         <div className="text-right shrink-0">
                           <p className="text-sm font-medium text-zinc-700">{count}/{totalActive}</p>
-                          <p className="text-xs text-zinc-400">{pct}% reportaron</p>
+                          <p className="text-xs text-zinc-400">{pct}%</p>
                         </div>
 
                         {/* Estado */}
@@ -168,7 +168,7 @@ export default async function ReportesPage() {
                           {display.label}
                         </span>
 
-                        <span className="text-zinc-300 text-xs shrink-0">→</span>
+                        <span className="hidden sm:inline text-zinc-300 text-xs shrink-0">→</span>
                       </CardContent>
                     </Card>
                   </Link>
@@ -203,7 +203,7 @@ export default async function ReportesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Mis reportes</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Mis reportes</h1>
         <p className="text-zinc-500 mt-1 text-sm">
           Reportes semanales generados a partir de tus mensajes.
         </p>
@@ -234,8 +234,8 @@ export default async function ReportesPage() {
               <li key={r.id}>
                 <Link href={`/reportes/${r.id}`}>
                   <Card className="hover:border-zinc-400 transition-colors cursor-pointer">
-                    <CardContent className="py-4 px-5 flex items-center justify-between gap-4">
-                      <div className="space-y-1">
+                    <CardContent className="py-4 px-4 sm:px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                      <div className="space-y-1 min-w-0">
                         <p className="font-medium text-zinc-800 text-sm">
                           Semana {r.cycle_iso_week}/{r.cycle_year} —{' '}
                           {new Date(r.cycle_starts_at).toLocaleDateString('es-AR', {

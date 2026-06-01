@@ -147,7 +147,7 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Glosario de términos</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Glosario de términos</h1>
         <p className="text-zinc-500 mt-1 text-sm">
           Términos detectados en reportes de los últimos 90 días. Seleccioná los técnicos o siglas que la IA deba conocer mejor y aplicálos al prompt. Los irrelevantes podés archivarlos para que no vuelvan a aparecer.
         </p>
@@ -179,8 +179,83 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
         </CardContent>
       </Card>
 
-      {/* Lista */}
-      <Card>
+      {/* Mobile: cards apiladas */}
+      <div className="md:hidden space-y-2">
+        {filtered.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-center text-sm text-zinc-400">
+              No hay términos que mostrar con los filtros actuales.
+            </CardContent>
+          </Card>
+        ) : (
+          filtered.map(m => (
+            <Card key={m.term} className={m.alreadyInPrompt ? 'opacity-60' : ''}>
+              <CardContent className="py-3 px-4 space-y-2">
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(m.term)}
+                    disabled={m.alreadyInPrompt}
+                    onChange={() => toggleSelect(m.term)}
+                    className="rounded mt-0.5 cursor-pointer shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium text-zinc-800 text-sm">{m.term}</span>
+                      <span className="text-xs text-zinc-500 tabular-nums shrink-0">{m.frequency}×</span>
+                    </div>
+                    {editingTerm === m.term ? (
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={editingValue}
+                        onChange={e => setEditingValue(e.target.value)}
+                        onBlur={() => void commitDesc(m.term)}
+                        onKeyDown={e => handleDescKeyDown(e, m.term)}
+                        maxLength={120}
+                        placeholder="Descripción breve…"
+                        className="mt-1 w-full border border-zinc-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => startEditDesc(m.term, m.description)}
+                        className="mt-1 text-left block w-full"
+                      >
+                        {savingDesc === m.term ? (
+                          <span className="text-zinc-400 italic text-xs">Guardando…</span>
+                        ) : m.description ? (
+                          <span className="text-zinc-600 text-xs">{m.description}</span>
+                        ) : (
+                          <span className="text-zinc-400 italic text-xs">+ agregar descripción</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  {m.alreadyInPrompt ? (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                      En prompt
+                    </span>
+                  ) : archivingTerm === m.term ? (
+                    <span className="text-xs text-zinc-300">Archivando…</span>
+                  ) : (
+                    <button
+                      onClick={() => handleArchive(m.term)}
+                      className="text-xs text-zinc-400 hover:text-red-500 underline underline-offset-2"
+                    >
+                      Archivar
+                    </button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: tabla */}
+      <Card className="hidden md:block">
         <CardContent className="p-0">
           {filtered.length === 0 ? (
             <p className="text-sm text-zinc-400 py-6 text-center">

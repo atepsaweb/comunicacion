@@ -88,8 +88,8 @@ export default async function ReporteDetailPage({ params }: Props) {
     <div className="space-y-6 max-w-3xl">
       {/* Encabezado */}
       <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-zinc-900">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-xl md:text-2xl font-bold text-zinc-900">
             Reporte semana {cycle?.iso_week}/{cycle?.year}
           </h1>
           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
@@ -126,7 +126,7 @@ export default async function ReporteDetailPage({ params }: Props) {
 
       {/* Métricas */}
       {score != null && (
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
           <div>
             <p className="text-zinc-400 text-xs">Completitud</p>
             <p

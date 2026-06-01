@@ -162,7 +162,7 @@ export function AdminAusenciasClient({ initialAbsences, users }: Props) {
 
             <div className="space-y-1">
               <Label>Tipo</Label>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 {(['scheduled_leave', 'weekly_pause'] as const).map(t => (
                   <button
                     key={t}
@@ -223,12 +223,12 @@ export function AdminAusenciasClient({ initialAbsences, users }: Props) {
 
       {/* Listado */}
       <div className="space-y-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
           <h2 className="text-base font-semibold text-zinc-800">Ausencias registradas</h2>
           <select
             value={filterUser}
             onChange={e => setFilterUser(e.target.value)}
-            className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:outline-none"
+            className="rounded-md border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 focus:outline-none w-full sm:w-auto"
           >
             <option value="">Todos los usuarios</option>
             {users.map(u => (

@@ -125,10 +125,10 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900 break-words">
           Bienvenido/a, {session.user.full_name}
         </h1>
-        <p className="text-zinc-500 mt-1">
+        <p className="text-sm md:text-base text-zinc-500 mt-1">
           {roleLabels[role] ?? role} — Secretariado Nacional
         </p>
       </div>

@@ -190,7 +190,7 @@ export function PromptsClient({ prompts: initialPrompts }: Props) {
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Prompts de IA</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Prompts de IA</h1>
         <p className="text-zinc-500 mt-1 text-sm">
           Editá los prompts que usa el sistema. Cada edición crea una versión nueva; podés restaurar versiones anteriores.
         </p>
@@ -211,10 +211,10 @@ export function PromptsClient({ prompts: initialPrompts }: Props) {
               className="w-full text-left"
               onClick={() => toggleExpand(prompt.slug)}
             >
-              <div className="px-5 py-4 flex items-center justify-between hover:bg-zinc-50 transition-colors">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold text-zinc-800">
+              <div className="px-4 sm:px-5 py-4 flex items-center justify-between gap-3 hover:bg-zinc-50 transition-colors">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <span className="font-semibold text-zinc-800 text-sm sm:text-base">
                       {SLUG_LABELS[prompt.slug] ?? prompt.slug}
                     </span>
                     <span className="text-xs bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded font-mono">
@@ -229,7 +229,7 @@ export function PromptsClient({ prompts: initialPrompts }: Props) {
                     {prompt.notes && <span className="ml-2 italic">{prompt.notes}</span>}
                   </p>
                 </div>
-                <span className="text-zinc-400 text-sm">{expanded === prompt.slug ? '▲' : '▼'}</span>
+                <span className="text-zinc-400 text-sm shrink-0">{expanded === prompt.slug ? '▲' : '▼'}</span>
               </div>
             </button>
 
@@ -260,7 +260,7 @@ export function PromptsClient({ prompts: initialPrompts }: Props) {
                         className="w-full border rounded px-3 py-2 text-sm font-mono bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-zinc-300"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-zinc-600 mb-1">Modelo</label>
                         <input

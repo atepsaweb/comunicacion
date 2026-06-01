@@ -200,14 +200,14 @@ export function UsuariosClient({ users: initialUsers }: Props) {
 
   return (
     <div className="max-w-5xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Usuarios</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Usuarios</h1>
           <p className="text-zinc-500 mt-1 text-sm">
             {users.filter(u => u.is_active).length} activos · {users.filter(u => !u.is_active).length} inactivos
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between md:justify-end gap-3 flex-wrap">
           <label className="flex items-center gap-2 text-sm text-zinc-600 cursor-pointer">
             <input
               type="checkbox"
@@ -221,7 +221,53 @@ export function UsuariosClient({ users: initialUsers }: Props) {
         </div>
       </div>
 
-      <Card>
+      {/* Mobile: cards apiladas */}
+      <div className="md:hidden space-y-2">
+        {visible.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center text-zinc-400 text-sm">
+              No hay usuarios para mostrar.
+            </CardContent>
+          </Card>
+        ) : (
+          visible.map(user => (
+            <Card key={user.id} className={!user.is_active ? 'opacity-60' : ''}>
+              <CardContent className="py-3 px-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-zinc-900 text-sm truncate">{user.full_name}</p>
+                    {user.position && (
+                      <p className="text-xs text-zinc-500 truncate">{user.position}</p>
+                    )}
+                    <p className="font-mono text-xs text-zinc-500 mt-1">{user.phone_e164}</p>
+                  </div>
+                  <span className="inline-block px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 text-xs shrink-0">
+                    {ROLE_LABELS[user.role] ?? user.role}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    onClick={() => toggleActive(user)}
+                    className={`text-xs font-medium px-2 py-1 rounded ${
+                      user.is_active
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-zinc-100 text-zinc-500'
+                    }`}
+                  >
+                    {user.is_active ? 'Activo' : 'Inactivo'}
+                  </button>
+                  <Button onClick={() => openEdit(user)} className="h-8 px-3 text-xs">
+                    Editar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: tabla — oculta en mobile */}
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

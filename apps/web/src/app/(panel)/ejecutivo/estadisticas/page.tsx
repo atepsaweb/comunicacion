@@ -127,7 +127,7 @@ export default async function EstadisticasPage() {
   return (
     <div className="max-w-4xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Estadísticas</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Estadísticas</h1>
         <p className="text-zinc-500 mt-1 text-sm">Últimas {cycles.length} semanas cerradas.</p>
       </div>
 
@@ -189,7 +189,7 @@ export default async function EstadisticasPage() {
             <div className="space-y-2">
               {topCategories.map(([cat, count]) => (
                 <div key={cat} className="flex items-center gap-3">
-                  <span className="text-xs text-zinc-500 w-40 shrink-0 truncate">{cat}</span>
+                  <span className="text-xs text-zinc-500 w-24 sm:w-40 shrink-0 truncate">{cat}</span>
                   <div className="flex-1 h-6 bg-zinc-100 rounded overflow-hidden">
                     <div
                       className="h-full bg-zinc-700 rounded flex items-center justify-end pr-2 transition-all"

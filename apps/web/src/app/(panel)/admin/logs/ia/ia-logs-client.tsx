@@ -59,7 +59,7 @@ export function IALogsClient({ logs }: Props) {
   return (
     <div className="max-w-6xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Logs de IA</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Logs de IA</h1>
         <p className="text-zinc-500 mt-1 text-sm">
           Llamadas a Claude API — últimas 200. Filtrá por propósito, ciclo o fecha.
         </p>
@@ -67,13 +67,13 @@ export function IALogsClient({ logs }: Props) {
 
       {/* Filtros */}
       <Card>
-        <CardContent className="p-4 flex flex-wrap gap-4 items-end">
-          <div>
+        <CardContent className="p-4 grid grid-cols-2 md:flex md:flex-wrap gap-3 md:gap-4 md:items-end">
+          <div className="col-span-2 md:col-auto">
             <label className="block text-xs font-medium text-zinc-600 mb-1">Propósito</label>
             <select
               value={purposeFilter}
               onChange={e => setPurposeFilter(e.target.value)}
-              className="border rounded px-2 py-1.5 text-sm bg-white text-zinc-800 min-w-[180px]"
+              className="border rounded px-2 py-1.5 text-sm bg-white text-zinc-800 w-full md:min-w-[180px] md:w-auto"
             >
               <option value="">Todos</option>
               {purposes.map(p => (
@@ -83,14 +83,14 @@ export function IALogsClient({ logs }: Props) {
               ))}
             </select>
           </div>
-          <div>
+          <div className="col-span-2 md:col-auto">
             <label className="block text-xs font-medium text-zinc-600 mb-1">Ciclo (ej: S22/2026)</label>
             <input
               type="text"
               value={cycleFilter}
               onChange={e => setCycleFilter(e.target.value)}
               placeholder="S22/2026"
-              className="border rounded px-2 py-1.5 text-sm w-32"
+              className="border rounded px-2 py-1.5 text-sm w-full md:w-32"
             />
           </div>
           <div>
@@ -99,7 +99,7 @@ export function IALogsClient({ logs }: Props) {
               type="date"
               value={dateFrom}
               onChange={e => setDateFrom(e.target.value)}
-              className="border rounded px-2 py-1.5 text-sm"
+              className="border rounded px-2 py-1.5 text-sm w-full md:w-auto"
             />
           </div>
           <div>
@@ -108,12 +108,12 @@ export function IALogsClient({ logs }: Props) {
               type="date"
               value={dateTo}
               onChange={e => setDateTo(e.target.value)}
-              className="border rounded px-2 py-1.5 text-sm"
+              className="border rounded px-2 py-1.5 text-sm w-full md:w-auto"
             />
           </div>
           <button
             onClick={() => { setPurposeFilter(''); setCycleFilter(''); setDateFrom(''); setDateTo(''); }}
-            className="text-sm text-zinc-500 hover:text-zinc-800 underline"
+            className="col-span-2 md:col-auto text-sm text-zinc-500 hover:text-zinc-800 underline text-left"
           >
             Limpiar
           </button>
@@ -121,7 +121,7 @@ export function IALogsClient({ logs }: Props) {
       </Card>
 
       {/* Resumen */}
-      <div className="flex items-center gap-6 text-sm">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
         <span className="text-zinc-600">
           <strong className="text-zinc-900">{filtered.length}</strong> invocaciones
         </span>
@@ -131,7 +131,7 @@ export function IALogsClient({ logs }: Props) {
         </span>
       </div>
 
-      {/* Tabla */}
+      {/* Mobile: cards apiladas */}
       {filtered.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-zinc-400 text-sm">
@@ -139,7 +139,44 @@ export function IALogsClient({ logs }: Props) {
           </CardContent>
         </Card>
       ) : (
-        <Card>
+        <>
+        <div className="md:hidden space-y-2">
+          {filtered.map(row => (
+            <Card key={row.id}>
+              <CardContent className="py-3 px-4 space-y-1.5 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="font-medium text-zinc-800">
+                    {PURPOSE_LABELS[row.purpose] ?? row.purpose}
+                  </span>
+                  {row.success ? (
+                    <span className="text-green-600 font-medium shrink-0">OK</span>
+                  ) : (
+                    <span className="text-red-500 font-medium shrink-0">Error</span>
+                  )}
+                </div>
+                <p className="text-zinc-500">
+                  {new Date(row.created_at).toLocaleString('es-AR', {
+                    day: '2-digit', month: '2-digit',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                  {row.cycle_label && <> · {row.cycle_label}</>}
+                </p>
+                <p className="text-zinc-500 font-mono break-all">
+                  {row.model.replace('claude-', '').replace('-20251001', '')}
+                </p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-zinc-600 pt-1">
+                  <span>in: {row.input_tokens.toLocaleString('es-AR')}</span>
+                  <span>out: {row.output_tokens.toLocaleString('es-AR')}</span>
+                  <span className="font-mono text-zinc-800">${parseFloat(row.cost_usd).toFixed(4)}</span>
+                </div>
+                <p className="text-zinc-400">Disparo: {row.triggered_by}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Desktop: tabla */}
+        <Card className="hidden md:block">
           <CardContent className="p-0 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -200,6 +237,7 @@ export function IALogsClient({ logs }: Props) {
             </table>
           </CardContent>
         </Card>
+        </>
       )}
     </div>
   );

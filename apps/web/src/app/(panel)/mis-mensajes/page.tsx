@@ -51,7 +51,7 @@ export default async function MisMensajesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Mis mensajes</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Mis mensajes</h1>
         <p className="text-zinc-500 mt-1 text-sm">
           Mensajes que enviaste al bot de WhatsApp.
         </p>
@@ -70,8 +70,8 @@ export default async function MisMensajesPage() {
           {rows.map((msg) => (
             <li key={msg.id}>
               <Card>
-                <CardContent className="py-4 px-5 space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-zinc-500">
+                <CardContent className="py-4 px-4 sm:px-5 space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
                     <span className="font-medium text-zinc-700">
                       {kindLabel(msg.kind, msg.mime_type ?? null)}
                     </span>

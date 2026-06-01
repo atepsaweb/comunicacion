@@ -127,7 +127,7 @@ export default function AusenciasPage() {
   return (
     <div className="max-w-2xl space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Ausencias</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Ausencias</h1>
         <p className="text-zinc-500 mt-1 text-sm">
           Registrá vacaciones o pausas para no recibir recordatorios en ese período.
         </p>
@@ -142,7 +142,7 @@ export default function AusenciasPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="tipo">Tipo</Label>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 {(['scheduled_leave', 'weekly_pause'] as const).map(t => (
                   <button
                     key={t}

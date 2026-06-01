@@ -129,16 +129,16 @@ export default async function CumplimientoPage() {
 
   return (
     <div className="max-w-full space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Cumplimiento</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Cumplimiento</h1>
           <p className="text-zinc-500 mt-1 text-sm">Matriz de reporte — últimas {cycles.length} semanas cerradas.</p>
         </div>
         <DownloadXlsxButton />
       </div>
 
       {/* Leyenda */}
-      <div className="flex items-center gap-4 text-xs text-zinc-600">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-600">
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded-sm bg-green-600" />Reportó
         </span>
@@ -153,8 +153,44 @@ export default async function CumplimientoPage() {
         </span>
       </div>
 
-      {/* Tabla */}
-      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+      {/* Mobile: una card por secretario con sus últimas semanas */}
+      <div className="md:hidden space-y-2">
+        {users.map(u => (
+          <div key={u.id} className="rounded-lg border border-zinc-200 bg-white p-3">
+            <p className="text-sm font-medium text-zinc-800 mb-2">{u.full_name}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {cycleRanges.map(cr => {
+                const status = resolveCellStatus(u.id, cr.id, cr.startDate, cr.endDate, reportMap, absences);
+                const cycle = cycles.find(c => c.id === cr.id)!;
+                return (
+                  <span
+                    key={cr.id}
+                    className={`inline-flex items-center justify-center px-2 h-6 rounded text-xs font-medium ${CELL_STYLES[status]}`}
+                    title={`Semana ${cycle.iso_week} — ${CELL_LABELS[status]}`}
+                  >
+                    S{cycle.iso_week}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+
+        {/* Totales mobile */}
+        <div className="rounded-lg border-2 border-zinc-300 bg-zinc-100 p-3">
+          <p className="text-sm font-semibold text-zinc-700 mb-2">Totales por semana</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-700">
+            {cycles.map((c, i) => (
+              <span key={c.id} className="tabular-nums">
+                S{c.iso_week}: {cycleTotals[i]!.reported}/{cycleTotals[i]!.total}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop: tabla */}
+      <div className="hidden md:block overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="text-sm w-full border-collapse">
           <thead>
             <tr className="bg-zinc-50 border-b border-zinc-200">
