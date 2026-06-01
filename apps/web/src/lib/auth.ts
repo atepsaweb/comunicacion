@@ -1,7 +1,7 @@
 import CredentialsProvider from 'next-auth/providers/credentials';
 import type { NextAuthOptions, User as NextAuthUser } from 'next-auth';
 import bcrypt from 'bcryptjs';
-import { and, eq, gt, isNull, lt } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, lt } from 'drizzle-orm';
 import { db } from '@/db';
 import { otpCodes, users } from '@/db/schema';
 import { logger } from './logger';
@@ -55,7 +55,7 @@ export const authOptions: NextAuthOptions = {
               lt(otpCodes.attempts, MAX_OTP_ATTEMPTS),
             ),
           )
-          .orderBy(otpCodes.created_at)
+          .orderBy(desc(otpCodes.created_at))
           .limit(1);
 
         if (!otp) {

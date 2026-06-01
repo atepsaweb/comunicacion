@@ -69,6 +69,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const code_hash = await bcrypt.hash(code, 10);
   const expires_at = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
 
+  // Invalidar cualquier OTP previo no consumido del mismo teléfono:
+  // el nuevo código pisa al anterior, evita que la verificación tome uno viejo
+  // (p. ej. uno que nunca llegó por caída de WhatsApp) y devuelva "código incorrecto".
+  await db
+    .update(otpCodes)
+    .set({ consumed_at: new Date() })
+    .where(and(eq(otpCodes.phone_e164, phone), isNull(otpCodes.consumed_at)));
+
   await db.insert(otpCodes).values({
     id: uuidv7(),
     user_id: user.id,
