@@ -109,6 +109,12 @@ export function RevisionClient({
   const [savingConsolidation, setSavingConsolidation] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
 
+  // Estado consolidado — aprobación
+  const [consolidationApproved, setConsolidationApproved] = useState(
+    initialConsolidation?.status === 'approved' || initialConsolidation?.status === 'sent',
+  );
+  const [approvingConsolidation, setApprovingConsolidation] = useState(false);
+
   // Estado ciclo
   const [cyclePublished, setCyclePublished] = useState(cycle.status === 'published');
   const [publishPending, setPublishPending] = useState(false);
@@ -157,6 +163,17 @@ export function RevisionClient({
   }
 
   // ─── Acciones de consolidado ────────────────────────────────────────────────
+
+  async function handleApproveConsolidation() {
+    if (!consolidation) return;
+    setApprovingConsolidation(true);
+    try {
+      const res = await fetch(`/api/consolidations/${consolidation.id}/approve`, { method: 'POST' });
+      if (res.ok) setConsolidationApproved(true);
+    } finally {
+      setApprovingConsolidation(false);
+    }
+  }
 
   function startEditConsolidation() {
     setEditConsolidationText(consolidation?.summaryMd ?? '');
@@ -374,6 +391,19 @@ export function RevisionClient({
                     >
                       🖨 Imprimir / PDF
                     </button>
+                    {consolidationApproved ? (
+                      <span className="text-xs text-green-700 font-medium px-2.5 py-1 bg-green-50 border border-green-200 rounded">
+                        ✓ Aprobado
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleApproveConsolidation}
+                        disabled={approvingConsolidation}
+                        className="text-xs px-2.5 py-1 bg-green-700 text-white rounded hover:bg-green-800 disabled:opacity-50 transition-colors"
+                      >
+                        {approvingConsolidation ? 'Aprobando…' : 'Aprobar'}
+                      </button>
+                    )}
                   </>
                 )}
               </div>
