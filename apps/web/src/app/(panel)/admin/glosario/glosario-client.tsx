@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ type MentionEntry = {
   term: string;
   frequency: number;
   alreadyInPrompt: boolean;
+  description: string;
 };
 
 interface Props {
@@ -16,15 +17,23 @@ interface Props {
 }
 
 type ApplyResponse = { ok: boolean; newVersion: number; termsAdded: string[] };
+type DescriptionResponse = { ok: boolean; term: string; description: string };
 
 export function GlosarioClient({ mentions: initialMentions }: Props) {
   const router = useRouter();
-  const [mentions] = useState(initialMentions);
+
+  const [mentions, setMentions] = useState(initialMentions);
   const [hideIncluded, setHideIncluded] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [status, setStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
-  const [feedback, setFeedback] = useState('');
+  const [applyStatus, setApplyStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
+  const [applyFeedback, setApplyFeedback] = useState('');
+
+  // Estado de edición de descripciones: term → estado
+  const [editingTerm, setEditingTerm] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+  const [savingDesc, setSavingDesc] = useState<string | null>(null); // term que está guardando
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     return mentions.filter(m => {
@@ -46,10 +55,54 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
     });
   }
 
+  function startEditDesc(term: string, current: string) {
+    setEditingTerm(term);
+    setEditingValue(current);
+    // Foco en el siguiente tick para que el input ya esté renderizado
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  async function commitDesc(term: string) {
+    const trimmed = editingValue.trim();
+    const original = mentions.find(m => m.term === term)?.description ?? '';
+
+    setEditingTerm(null);
+
+    // Sin cambio, no llama al server
+    if (trimmed === original) return;
+
+    setSavingDesc(term);
+    try {
+      const res = await fetch('/api/admin/glosario/descriptions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ term, description: trimmed }),
+      });
+      if (res.ok) {
+        const data = await res.json() as DescriptionResponse;
+        setMentions(prev =>
+          prev.map(m => m.term === term ? { ...m, description: data.description } : m),
+        );
+      }
+    } finally {
+      setSavingDesc(null);
+    }
+  }
+
+  function handleDescKeyDown(e: React.KeyboardEvent, term: string) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void commitDesc(term);
+    }
+    if (e.key === 'Escape') {
+      setEditingTerm(null);
+    }
+  }
+
   async function handleApply() {
     if (selected.size === 0) return;
-    setStatus('saving');
-    setFeedback('');
+    setApplyStatus('saving');
+    setApplyFeedback('');
     try {
       const res = await fetch('/api/admin/glosario/apply', {
         method: 'POST',
@@ -58,18 +111,18 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
       });
       if (!res.ok) {
         const data = await res.json() as { error: string };
-        setFeedback(data.error ?? 'Error al aplicar');
-        setStatus('error');
+        setApplyFeedback(data.error ?? 'Error al aplicar');
+        setApplyStatus('error');
         return;
       }
       const data = await res.json() as ApplyResponse;
-      setFeedback(`Versión ${data.newVersion} creada. Términos agregados: ${data.termsAdded.join(', ')}.`);
-      setStatus('done');
+      setApplyFeedback(`Versión ${data.newVersion} creada. Términos agregados: ${data.termsAdded.join(', ')}.`);
+      setApplyStatus('done');
       setSelected(new Set());
       router.refresh();
     } catch {
-      setFeedback('Error de red al aplicar');
-      setStatus('error');
+      setApplyFeedback('Error de red al aplicar');
+      setApplyStatus('error');
     }
   }
 
@@ -77,7 +130,7 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
   const pendingCount = mentions.filter(m => !m.alreadyInPrompt).length;
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">Glosario de términos</h1>
         <p className="text-zinc-500 mt-1 text-sm">
@@ -92,7 +145,7 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
       {/* Filtros */}
       <Card>
         <CardContent className="py-4 flex flex-col sm:flex-row gap-3">
-          <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-zinc-700 cursor-pointer shrink-0">
             <input
               type="checkbox"
               checked={hideIncluded}
@@ -123,30 +176,78 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
               <thead>
                 <tr className="border-b text-zinc-500 text-xs uppercase tracking-wide">
                   <th className="px-4 py-3 text-left w-8"></th>
-                  <th className="px-4 py-3 text-left">Término</th>
-                  <th className="px-4 py-3 text-right">Frecuencia</th>
-                  <th className="px-4 py-3 text-right">Estado</th>
+                  <th className="px-4 py-3 text-left w-36">Término</th>
+                  <th className="px-4 py-3 text-left">Descripción breve</th>
+                  <th className="px-4 py-3 text-right w-24">Frecuencia</th>
+                  <th className="px-4 py-3 text-right w-28">Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {filtered.map(m => (
                   <tr
                     key={m.term}
-                    className={m.alreadyInPrompt ? 'bg-zinc-50 opacity-60' : 'hover:bg-zinc-50 cursor-pointer'}
-                    onClick={() => !m.alreadyInPrompt && toggleSelect(m.term)}
+                    className={m.alreadyInPrompt ? 'bg-zinc-50 opacity-60' : 'hover:bg-zinc-50'}
                   >
+                    {/* Checkbox */}
                     <td className="px-4 py-3">
                       <input
                         type="checkbox"
                         checked={selected.has(m.term)}
                         disabled={m.alreadyInPrompt}
                         onChange={() => toggleSelect(m.term)}
-                        onClick={e => e.stopPropagation()}
-                        className="rounded"
+                        className="rounded cursor-pointer"
                       />
                     </td>
-                    <td className="px-4 py-3 font-medium text-zinc-800">{m.term}</td>
-                    <td className="px-4 py-3 text-right text-zinc-500">{m.frequency} {m.frequency === 1 ? 'vez' : 'veces'}</td>
+
+                    {/* Término */}
+                    <td
+                      className="px-4 py-3 font-medium text-zinc-800 cursor-pointer select-none"
+                      onClick={() => !m.alreadyInPrompt && toggleSelect(m.term)}
+                    >
+                      {m.term}
+                    </td>
+
+                    {/* Descripción editable */}
+                    <td className="px-4 py-3">
+                      {editingTerm === m.term ? (
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          value={editingValue}
+                          onChange={e => setEditingValue(e.target.value)}
+                          onBlur={() => void commitDesc(m.term)}
+                          onKeyDown={e => handleDescKeyDown(e, m.term)}
+                          maxLength={120}
+                          placeholder="Descripción breve (máx. 120 car.)…"
+                          className="w-full border border-zinc-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => startEditDesc(m.term, m.description)}
+                          className="w-full text-left group"
+                          title="Clic para editar"
+                        >
+                          {savingDesc === m.term ? (
+                            <span className="text-zinc-400 italic text-xs">Guardando…</span>
+                          ) : m.description ? (
+                            <span className="text-zinc-600 group-hover:text-zinc-900 transition-colors">
+                              {m.description}
+                            </span>
+                          ) : (
+                            <span className="text-zinc-300 group-hover:text-zinc-400 italic transition-colors text-xs">
+                              + agregar descripción
+                            </span>
+                          )}
+                        </button>
+                      )}
+                    </td>
+
+                    {/* Frecuencia */}
+                    <td className="px-4 py-3 text-right text-zinc-500 tabular-nums">
+                      {m.frequency} {m.frequency === 1 ? 'vez' : 'veces'}
+                    </td>
+
+                    {/* Estado */}
                     <td className="px-4 py-3 text-right">
                       {m.alreadyInPrompt && (
                         <span className="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
@@ -162,14 +263,14 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
         </CardContent>
       </Card>
 
-      {/* Acción */}
+      {/* Acción aplicar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-4">
           <Button
             onClick={handleApply}
-            disabled={status === 'saving'}
+            disabled={applyStatus === 'saving'}
           >
-            {status === 'saving'
+            {applyStatus === 'saving'
               ? 'Guardando…'
               : `Aplicar al prompt de extracción (${selected.size})`}
           </Button>
@@ -177,14 +278,14 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
             onClick={() => setSelected(new Set())}
             className="text-sm text-zinc-400 hover:text-zinc-600"
           >
-            Desseleccionar todo
+            Deseleccionar todo
           </button>
         </div>
       )}
 
-      {feedback && (
-        <p className={`text-sm ${status === 'error' ? 'text-red-600' : 'text-green-700'}`}>
-          {feedback}
+      {applyFeedback && (
+        <p className={`text-sm ${applyStatus === 'error' ? 'text-red-600' : 'text-green-700'}`}>
+          {applyFeedback}
         </p>
       )}
     </div>
