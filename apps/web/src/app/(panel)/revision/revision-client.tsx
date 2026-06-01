@@ -33,15 +33,30 @@ const cycleStatusLabel: Record<string, string> = {
   open: 'Abierto',
   closed: 'Cerrado',
   processed: 'Procesado',
-  published: 'Publicado',
+  published: 'Enviado',
 };
 
 const cycleStatusColor: Record<string, string> = {
   open: 'bg-green-50 text-green-700',
   closed: 'bg-yellow-50 text-yellow-700',
   processed: 'bg-blue-50 text-blue-700',
-  published: 'bg-zinc-100 text-zinc-600',
+  published: 'bg-green-50 text-green-700',
 };
+
+// Badge del ciclo actual teniendo en cuenta aprobación del consolidado
+function getCycleBadge(
+  status: string,
+  consolidationApproved: boolean,
+): { label: string; color: string } {
+  if (status === 'published') return { label: 'Enviado', color: 'bg-green-50 text-green-700' };
+  if (status === 'processed' && consolidationApproved) {
+    return { label: 'Aprobado', color: 'bg-indigo-50 text-indigo-700' };
+  }
+  return {
+    label: cycleStatusLabel[status] ?? status,
+    color: cycleStatusColor[status] ?? 'bg-zinc-100 text-zinc-600',
+  };
+}
 
 type Publication = {
   id: string;
@@ -294,11 +309,14 @@ export function RevisionClient({
           <h1 className="text-2xl font-bold text-zinc-900">Revisión</h1>
           <p className="text-zinc-500 mt-1 text-sm">
             Semana {cycle.isoWeek}/{cycle.year} · {startDate} al {endDate}
-            <span
-              className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${cycleStatusColor[cycle.status] ?? 'bg-zinc-100 text-zinc-600'}`}
-            >
-              {cycleStatusLabel[cycle.status] ?? cycle.status}
-            </span>
+            {(() => {
+              const badge = getCycleBadge(cycle.status, consolidationApproved);
+              return (
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${badge.color}`}>
+                  {badge.label}
+                </span>
+              );
+            })()}
           </p>
         </div>
 

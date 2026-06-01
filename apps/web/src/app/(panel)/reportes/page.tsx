@@ -28,19 +28,27 @@ const reportStatusColor: Record<string, string> = {
 
 // ─── Vista admin (press_admin) ────────────────────────────────────────────────
 
-const cycleStatusLabel: Record<string, string> = {
-  open: 'Abierto',
-  closed: 'Cerrado',
-  processed: 'Procesado',
-  published: 'Publicado',
-};
-
-const cycleStatusColor: Record<string, string> = {
-  open: 'text-green-700 bg-green-50',
-  closed: 'text-yellow-700 bg-yellow-50',
-  processed: 'text-blue-700 bg-blue-50',
-  published: 'text-zinc-600 bg-zinc-100',
-};
+// Devuelve label y color teniendo en cuenta el estado del consolidado
+function getCycleDisplay(
+  cycleStatus: string,
+  consolidationStatus: string | undefined,
+): { label: string; color: string } {
+  if (cycleStatus === 'published') {
+    return { label: 'Enviado', color: 'text-green-700 bg-green-50' };
+  }
+  if (cycleStatus === 'processed') {
+    if (consolidationStatus === 'approved' || consolidationStatus === 'sent') {
+      return { label: 'Aprobado', color: 'text-indigo-700 bg-indigo-50' };
+    }
+    return { label: 'Procesado', color: 'text-blue-700 bg-blue-50' };
+  }
+  const labels: Record<string, string> = { open: 'Abierto', closed: 'Cerrado' };
+  const colors: Record<string, string> = {
+    open: 'text-green-700 bg-green-50',
+    closed: 'text-yellow-700 bg-yellow-50',
+  };
+  return { label: labels[cycleStatus] ?? cycleStatus, color: colors[cycleStatus] ?? 'text-zinc-600 bg-zinc-100' };
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -65,8 +73,19 @@ export default async function ReportesPage() {
       limit: 52, // ~1 año
     });
 
-    // Conteo de reportes por ciclo
     const cycleIds = cycles.map(c => c.id);
+
+    // Estado de consolidados por ciclo
+    const consolidations =
+      cycleIds.length > 0
+        ? await db.query.consolidations.findMany({
+            where: inArray(schema.consolidations.cycle_id, cycleIds),
+            columns: { cycle_id: true, status: true },
+          })
+        : [];
+    const consolidationByCycle = new Map(consolidations.map(con => [con.cycle_id, con.status]));
+
+    // Conteo de reportes por ciclo
     const reports =
       cycleIds.length > 0
         ? await db.query.reports.findMany({
@@ -113,6 +132,7 @@ export default async function ReportesPage() {
             {cycles.map(c => {
               const count = reportsByCycle.get(c.id) ?? 0;
               const pct = totalActive > 0 ? Math.round((count / totalActive) * 100) : 0;
+              const display = getCycleDisplay(c.status, consolidationByCycle.get(c.id));
               return (
                 <li key={c.id}>
                   <Link href={`/revision?cycleId=${c.id}`}>
@@ -144,10 +164,8 @@ export default async function ReportesPage() {
                         </div>
 
                         {/* Estado */}
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${cycleStatusColor[c.status] ?? 'bg-zinc-100 text-zinc-500'}`}
-                        >
-                          {cycleStatusLabel[c.status] ?? c.status}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${display.color}`}>
+                          {display.label}
                         </span>
 
                         <span className="text-zinc-300 text-xs shrink-0">→</span>
