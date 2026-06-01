@@ -29,11 +29,14 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
   const [applyStatus, setApplyStatus] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
   const [applyFeedback, setApplyFeedback] = useState('');
 
-  // Estado de edición de descripciones: term → estado
+  // Edición de descripciones
   const [editingTerm, setEditingTerm] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
-  const [savingDesc, setSavingDesc] = useState<string | null>(null); // term que está guardando
+  const [savingDesc, setSavingDesc] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Archivado
+  const [archivingTerm, setArchivingTerm] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return mentions.filter(m => {
@@ -46,29 +49,24 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
   function toggleSelect(term: string) {
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(term)) {
-        next.delete(term);
-      } else {
-        next.add(term);
-      }
+      if (next.has(term)) next.delete(term);
+      else next.add(term);
       return next;
     });
   }
 
+  // ─── Descripción ────────────────────────────────────────────────────────────
+
   function startEditDesc(term: string, current: string) {
     setEditingTerm(term);
     setEditingValue(current);
-    // Foco en el siguiente tick para que el input ya esté renderizado
     setTimeout(() => inputRef.current?.focus(), 0);
   }
 
   async function commitDesc(term: string) {
     const trimmed = editingValue.trim();
     const original = mentions.find(m => m.term === term)?.description ?? '';
-
     setEditingTerm(null);
-
-    // Sin cambio, no llama al server
     if (trimmed === original) return;
 
     setSavingDesc(term);
@@ -90,14 +88,31 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
   }
 
   function handleDescKeyDown(e: React.KeyboardEvent, term: string) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      void commitDesc(term);
-    }
-    if (e.key === 'Escape') {
-      setEditingTerm(null);
+    if (e.key === 'Enter') { e.preventDefault(); void commitDesc(term); }
+    if (e.key === 'Escape') setEditingTerm(null);
+  }
+
+  // ─── Archivado ───────────────────────────────────────────────────────────────
+
+  async function handleArchive(term: string) {
+    setArchivingTerm(term);
+    try {
+      const res = await fetch('/api/admin/glosario/archive', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ term, archived: true }),
+      });
+      if (res.ok) {
+        // Quitar de la lista local — no volverá a aparecer
+        setMentions(prev => prev.filter(m => m.term !== term));
+        setSelected(prev => { const next = new Set(prev); next.delete(term); return next; });
+      }
+    } finally {
+      setArchivingTerm(null);
     }
   }
+
+  // ─── Aplicar al prompt ───────────────────────────────────────────────────────
 
   async function handleApply() {
     if (selected.size === 0) return;
@@ -127,14 +142,14 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
   }
 
   const includedCount = mentions.filter(m => m.alreadyInPrompt).length;
-  const pendingCount = mentions.filter(m => !m.alreadyInPrompt).length;
+  const pendingCount  = mentions.filter(m => !m.alreadyInPrompt).length;
 
   return (
     <div className="max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-zinc-900">Glosario de términos</h1>
         <p className="text-zinc-500 mt-1 text-sm">
-          Términos detectados en reportes de los últimos 90 días. Marcá los que querés que la IA reconozca mejor y aplicá al prompt de extracción.
+          Términos detectados en reportes de los últimos 90 días. Seleccioná los técnicos o siglas que la IA deba conocer mejor y aplicálos al prompt. Los irrelevantes podés archivarlos para que no vuelvan a aparecer.
         </p>
       </div>
 
@@ -178,15 +193,15 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
                   <th className="px-4 py-3 text-left w-8"></th>
                   <th className="px-4 py-3 text-left w-36">Término</th>
                   <th className="px-4 py-3 text-left">Descripción breve</th>
-                  <th className="px-4 py-3 text-right w-24">Frecuencia</th>
-                  <th className="px-4 py-3 text-right w-28">Estado</th>
+                  <th className="px-4 py-3 text-right w-24">Frec.</th>
+                  <th className="px-4 py-3 text-right w-32">Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
                 {filtered.map(m => (
                   <tr
                     key={m.term}
-                    className={m.alreadyInPrompt ? 'bg-zinc-50 opacity-60' : 'hover:bg-zinc-50'}
+                    className={`group ${m.alreadyInPrompt ? 'bg-zinc-50 opacity-60' : 'hover:bg-zinc-50'}`}
                   >
                     {/* Checkbox */}
                     <td className="px-4 py-3">
@@ -224,17 +239,17 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
                       ) : (
                         <button
                           onClick={() => startEditDesc(m.term, m.description)}
-                          className="w-full text-left group"
+                          className="w-full text-left group/desc"
                           title="Clic para editar"
                         >
                           {savingDesc === m.term ? (
                             <span className="text-zinc-400 italic text-xs">Guardando…</span>
                           ) : m.description ? (
-                            <span className="text-zinc-600 group-hover:text-zinc-900 transition-colors">
+                            <span className="text-zinc-600 group-hover/desc:text-zinc-900 transition-colors">
                               {m.description}
                             </span>
                           ) : (
-                            <span className="text-zinc-300 group-hover:text-zinc-400 italic transition-colors text-xs">
+                            <span className="text-zinc-300 group-hover/desc:text-zinc-400 italic transition-colors text-xs">
                               + agregar descripción
                             </span>
                           )}
@@ -244,15 +259,25 @@ export function GlosarioClient({ mentions: initialMentions }: Props) {
 
                     {/* Frecuencia */}
                     <td className="px-4 py-3 text-right text-zinc-500 tabular-nums">
-                      {m.frequency} {m.frequency === 1 ? 'vez' : 'veces'}
+                      {m.frequency}×
                     </td>
 
-                    {/* Estado */}
+                    {/* Estado / Acciones */}
                     <td className="px-4 py-3 text-right">
-                      {m.alreadyInPrompt && (
+                      {m.alreadyInPrompt ? (
                         <span className="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                          Ya incluido
+                          En prompt
                         </span>
+                      ) : archivingTerm === m.term ? (
+                        <span className="text-xs text-zinc-300">Archivando…</span>
+                      ) : (
+                        <button
+                          onClick={() => handleArchive(m.term)}
+                          title="Archivar — no vuelve a aparecer como sugerencia"
+                          className="text-xs text-zinc-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                          Archivar
+                        </button>
                       )}
                     </td>
                   </tr>
