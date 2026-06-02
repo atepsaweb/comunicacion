@@ -13,6 +13,7 @@ function kindLabel(kind: string, mimeType: string | null): string {
     if (mimeType === 'application/pdf') return 'PDF';
     if (mimeType.startsWith('image/')) return 'Imagen';
     if (mimeType.includes('wordprocessingml') || mimeType === 'application/msword') return 'Documento Word';
+    if (mimeType === 'text/plain') return 'Transcripción (.txt)';
     return 'Archivo';
   }
   return kind;

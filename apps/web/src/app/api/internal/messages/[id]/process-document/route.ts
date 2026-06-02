@@ -1,3 +1,4 @@
+import { readFile } from 'fs/promises';
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -13,6 +14,7 @@ const DOCUMENT_MIMES = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/msword',
+  'text/plain',
 ]);
 const IMAGE_MIMES = new Set([
   'image/jpeg',
@@ -77,7 +79,19 @@ export async function POST(
   let extractedText = '';
   let method: string;
 
-  if (IMAGE_MIMES.has(msg.mime_type)) {
+  if (msg.mime_type === 'text/plain') {
+    // Texto plano (.txt) — leer directamente, sin IA ni OCR.
+    // Zoom y otras herramientas exportan transcripciones en este formato.
+    // Limitamos a 200 KB para no inflar la DB con archivos gigantes.
+    const MAX_TXT_BYTES = 200 * 1024;
+    const raw = await readFile(msg.document_path);
+    const truncated = raw.byteLength > MAX_TXT_BYTES;
+    extractedText = raw.slice(0, MAX_TXT_BYTES).toString('utf-8');
+    method = 'plain_text';
+    if (truncated) {
+      logger.warn({ messageId: msg.id, bytes: raw.byteLength }, 'txt truncated to 200KB');
+    }
+  } else if (IMAGE_MIMES.has(msg.mime_type)) {
     // Imagen → Claude Vision
     const { text } = await extractTextFromImage({
       imagePath: msg.document_path,

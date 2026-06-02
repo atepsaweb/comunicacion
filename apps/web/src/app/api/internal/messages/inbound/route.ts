@@ -6,11 +6,12 @@ import { validateInternalSecret } from '@/lib/internal-auth';
 import { downloadWahaMedia, resolveWahaPhone } from '@/lib/waha-media';
 import { logger } from '@/lib/logger';
 
-// Tipos MIME procesables como documentos (extracción de texto en el transcriber)
+// Tipos MIME procesables como documentos (extracción de texto)
 const DOCUMENT_MIME_TYPES = new Set([
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
   'application/msword', // .doc (legacy)
+  'text/plain',         // .txt — transcripciones Zoom, notas, etc.
 ]);
 
 // Tipos MIME procesables como imágenes vía Claude Vision
@@ -67,6 +68,7 @@ function extFromMime(mime: string): string {
   if (mime === 'image/png') return 'png';
   if (mime === 'image/webp') return 'webp';
   if (mime === 'image/gif') return 'gif';
+  if (mime === 'text/plain') return 'txt';
   return 'bin';
 }
 
