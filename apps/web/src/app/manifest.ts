@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'ATEPSA Reportes',
     short_name: 'ATEPSA',
     description: 'Panel del Secretariado Nacional',
-    start_url: '/login',
+    start_url: '/dashboard',
     display: 'standalone',
     background_color: '#0d2040',
     theme_color: '#2E3863',
