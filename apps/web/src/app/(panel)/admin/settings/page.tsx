@@ -26,7 +26,11 @@ const DEFAULT_SETTINGS: Array<{ key: string; value: unknown }> = [
       'Otro',
     ],
   },
-  { key: 'max_followup_per_cycle', value: 2 },
+  // Máximo de repreguntas por "burst" del usuario. Un burst es una secuencia
+  // de mensajes sin un hueco >= 6h. Si pasan más de 6h sin mensajes del usuario,
+  // el contador se reinicia y la IA puede volver a hacer hasta este máximo de
+  // preguntas sobre los nuevos mensajes.
+  { key: 'max_followup_per_burst', value: 2 },
   { key: 'cycle_timezone', value: 'America/Argentina/Buenos_Aires' },
   // Proveedor de WhatsApp activo. 'waha' usa WAHA self-hosted (whatsapp-web.js),
   // 'meta' usa la Cloud API oficial. Cambiar a 'meta' sólo cuando los templates

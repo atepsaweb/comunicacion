@@ -1,3 +1,7 @@
+// API para leer y actualizar la configuración del sistema.
+// GET: devuelve todos los parámetros de configuración (creando los defaults si faltan)
+// POST: actualiza o crea un parámetro de configuración
+// Solo el rol press_admin puede acceder a la configuración.
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -19,7 +23,7 @@ const DEFAULT_SETTINGS: Array<{ key: string; value: unknown }> = [
       'Otro',
     ],
   },
-  { key: 'max_followup_per_cycle', value: 2 },
+  { key: 'max_followup_per_burst', value: 2 },
   { key: 'cycle_timezone', value: 'America/Argentina/Buenos_Aires' },
 ];
 
