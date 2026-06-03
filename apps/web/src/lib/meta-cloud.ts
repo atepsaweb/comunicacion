@@ -89,7 +89,7 @@ export async function sendMetaText(phoneE164: string, body: string): Promise<str
 export type TemplateComponent =
   | { type: 'header'; parameters: TemplateParam[] }
   | { type: 'body'; parameters: TemplateParam[] }
-  | { type: 'button'; sub_type: 'url' | 'quick_reply'; index: number; parameters: TemplateParam[] };
+  | { type: 'button'; sub_type: 'url' | 'quick_reply' | 'copy_code'; index: string; parameters: TemplateParam[] };
 
 export type TemplateParam =
   | { type: 'text'; text: string }

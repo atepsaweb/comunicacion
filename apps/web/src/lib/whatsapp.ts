@@ -102,6 +102,13 @@ type TemplateConfig = {
   language: string;
   /** Nombres de variables en orden, para mapear al body del template ({{1}}, {{2}}…). */
   body_params?: string[];
+  /**
+   * Si true, el template es de tipo Authentication (OTP). Meta requiere un
+   * `button` adicional sub_type='url' con el código como parámetro para que
+   * funcione el "Copy code" en el chat. El valor del button param es el mismo
+   * que el primer body_param.
+   */
+  auth_otp?: boolean;
 };
 type TemplateMap = Record<string, TemplateConfig>;
 
@@ -156,6 +163,19 @@ export async function sendWhatsAppTemplate(
       text: variables[name] ?? '',
     }));
     components.push({ type: 'body', parameters });
+
+    if (cfg.auth_otp) {
+      // Authentication template: el código va también al button "Copy code".
+      // Por convención el primer body_param es el código.
+      const codeKey = cfg.body_params[0];
+      const code = (codeKey ? variables[codeKey] : undefined) ?? '';
+      components.push({
+        type: 'button',
+        sub_type: 'url',
+        index: '0',
+        parameters: [{ type: 'text', text: code }],
+      });
+    }
   }
 
   const id = await sendMetaTemplate(phoneE164, cfg.name, cfg.language, components);
