@@ -218,11 +218,7 @@ export function UsuariosClient({ users: initialUsers }: Props) {
       return;
     }
 
-    const data = await res.json() as { phoneChanged?: boolean };
     closeModal();
-    if (data.phoneChanged) {
-      alert('Teléfono actualizado. Los OTP activos del usuario fueron eliminados.');
-    }
 
     setUsers(prev =>
       prev
@@ -411,11 +407,6 @@ export function UsuariosClient({ users: initialUsers }: Props) {
                   placeholder="+5491100000000"
                   className="mt-1"
                 />
-                {modal === 'edit' && form.phone_e164 !== editing?.phone_e164 && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    Cambiar el teléfono eliminará los OTP activos del usuario.
-                  </p>
-                )}
               </div>
               <div>
                 <Label>Cargo / posición</Label>

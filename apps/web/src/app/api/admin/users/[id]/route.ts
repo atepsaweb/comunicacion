@@ -1,3 +1,6 @@
+// Endpoint para editar un usuario existente.
+// Permite actualizar nombre, cargo, rol, notas, estado activo/inactivo y teléfono.
+// Solo el rol press_admin puede editar usuarios.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';
@@ -57,8 +60,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'Ya existe un usuario con ese teléfono' }, { status: 409 });
     }
     updates.phone_e164 = body.phone_e164!.trim();
-    // Limpiar OTP activos para evitar inconsistencias
-    await db.delete(schema.otpCodes).where(eq(schema.otpCodes.user_id, id));
   }
 
   updates.updated_at = new Date();
