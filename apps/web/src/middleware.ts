@@ -9,7 +9,7 @@ const isSecure = process.env.NEXTAUTH_URL?.startsWith('https://') ?? false;
 const COOKIE_NAME = `${isSecure ? '__Secure-' : ''}next-auth.session-token`;
 
 // Rutas que NO necesitan autenticación (accesibles sin estar logueado)
-const PUBLIC = /^(\/login|\/api\/auth|\/api\/internal|\/api\/webhooks|\/api\/health|\/favicon\.ico|\/_next\/)/;
+const PUBLIC = /^(\/login|\/privacy|\/api\/auth|\/api\/internal|\/api\/webhooks|\/api\/health|\/favicon\.ico|\/_next\/)/;
 
 // ─── Rate limiting para /api/internal/* ────────────────────────────────────
 // Limita cuántos requests puede hacer una IP en un minuto para los endpoints internos.
