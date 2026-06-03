@@ -57,6 +57,56 @@ export function UsuariosClient({ users: initialUsers }: Props) {
   const [error, setError] = useState('');
   const [showInactive, setShowInactive] = useState(false);
 
+  // Estado del link de acceso del usuario que está siendo editado
+  const [tokenUrl, setTokenUrl] = useState<string | null>(null);
+  const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null);
+  const [tokenBusy, setTokenBusy] = useState(false);
+  const [tokenCopied, setTokenCopied] = useState(false);
+
+  async function handleGenerateLink() {
+    if (!editing) return;
+    setTokenBusy(true);
+    setError('');
+    setTokenCopied(false);
+    try {
+      const res = await fetch(`/api/admin/users/${editing.id}/access-token`, { method: 'POST' });
+      const data = await res.json() as { loginUrl?: string; expiresAt?: string; error?: string };
+      if (!res.ok || !data.loginUrl) {
+        setError(data.error ?? 'No se pudo generar el link.');
+        return;
+      }
+      setTokenUrl(data.loginUrl);
+      setTokenExpiresAt(data.expiresAt ?? null);
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+
+  async function handleRevokeLink() {
+    if (!editing) return;
+    if (!confirm('Revocar todos los links de acceso de este usuario? Va a tener que pedir uno nuevo.')) return;
+    setTokenBusy(true);
+    try {
+      await fetch(`/api/admin/users/${editing.id}/access-token`, { method: 'DELETE' });
+      setTokenUrl(null);
+      setTokenExpiresAt(null);
+      setTokenCopied(false);
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+
+  async function copyToClipboard() {
+    if (!tokenUrl) return;
+    try {
+      await navigator.clipboard.writeText(tokenUrl);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    } catch {
+      setTokenCopied(false);
+    }
+  }
+
   const visible = showInactive ? users : users.filter(u => u.is_active);
 
   function openCreate() {
@@ -77,6 +127,9 @@ export function UsuariosClient({ users: initialUsers }: Props) {
     });
     setEditing(user);
     setError('');
+    setTokenUrl(null);
+    setTokenExpiresAt(null);
+    setTokenCopied(false);
     setModal('edit');
   }
 
@@ -84,6 +137,9 @@ export function UsuariosClient({ users: initialUsers }: Props) {
     setModal(null);
     setEditing(null);
     setError('');
+    setTokenUrl(null);
+    setTokenExpiresAt(null);
+    setTokenCopied(false);
   }
 
   async function handleCreate() {
@@ -402,6 +458,61 @@ export function UsuariosClient({ users: initialUsers }: Props) {
                   Usuario activo
                 </label>
               )}
+
+              {modal === 'edit' && (
+                <div className="border-t pt-4 mt-2">
+                  <Label>Link personal de acceso</Label>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    Generá un link único para que ingrese al panel. Compartiselo por WhatsApp y se copia con el botón.
+                  </p>
+
+                  {tokenUrl ? (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          readOnly
+                          value={tokenUrl}
+                          onFocus={e => e.target.select()}
+                          className="flex-1 font-mono text-xs px-2 py-1.5 border rounded bg-zinc-50 text-zinc-700"
+                        />
+                        <Button
+                          onClick={copyToClipboard}
+                          className="h-8 px-3 text-xs"
+                        >
+                          {tokenCopied ? 'Copiado' : 'Copiar'}
+                        </Button>
+                      </div>
+                      {tokenExpiresAt && (
+                        <p className="text-xs text-zinc-500">
+                          Válido hasta {new Date(tokenExpiresAt).toLocaleDateString('es-AR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })}.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        onClick={handleGenerateLink}
+                        disabled={tokenBusy || !form.is_active}
+                        className="h-8 px-3 text-xs"
+                      >
+                        {tokenBusy ? 'Generando…' : 'Generar link'}
+                      </Button>
+                      <Button
+                        onClick={handleRevokeLink}
+                        disabled={tokenBusy}
+                        className="h-8 px-3 text-xs bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      >
+                        Revocar activos
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {error && (
                 <p className="text-sm text-red-600">{error}</p>
               )}
