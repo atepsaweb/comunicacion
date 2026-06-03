@@ -4,11 +4,28 @@
   "active": false,
   "nodes": [
     {
+      "id": "node-schedule",
+      "name": "Cron viernes 19:00 ART",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 220],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 22 * * 5"
+            }
+          ]
+        }
+      }
+    },
+    {
       "id": "node-trigger",
       "name": "Disparo manual",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [240, 300],
+      "position": [240, 380],
       "parameters": {}
     },
     {
@@ -141,6 +158,11 @@
     }
   ],
   "connections": {
+    "Cron viernes 19:00 ART": {
+      "main": [
+        [{ "node": "Obtener ciclo activo", "type": "main", "index": 0 }]
+      ]
+    },
     "Disparo manual": {
       "main": [
         [{ "node": "Obtener ciclo activo", "type": "main", "index": 0 }]
