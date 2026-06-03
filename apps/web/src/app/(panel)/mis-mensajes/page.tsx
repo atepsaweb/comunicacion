@@ -1,9 +1,14 @@
+// Página "Mis mensajes": muestra al secretario los mensajes que envió al bot de WhatsApp.
+// Para cada mensaje muestra el tipo (texto, audio, imagen, PDF), cuándo llegó,
+// y el contenido transcripto o extraído (si ya fue procesado).
+// Sirve para que el secretario pueda verificar que su mensaje llegó y fue interpretado bien.
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, isNull } from 'drizzle-orm';
 import * as schema from '@/db/schema';
 import { Card, CardContent } from '@/components/ui/card';
+import { DeleteMessageButton } from './delete-button';
 
 function kindLabel(kind: string, mimeType: string | null): string {
   if (kind === 'text') return 'Texto';
@@ -45,7 +50,12 @@ export default async function MisMensajesPage() {
       schema.documentExtractions,
       eq(schema.documentExtractions.inbound_message_id, schema.inboundMessages.id),
     )
-    .where(eq(schema.inboundMessages.user_id, session.user.id))
+    .where(
+      and(
+        eq(schema.inboundMessages.user_id, session.user.id),
+        isNull(schema.inboundMessages.discarded_at),
+      ),
+    )
     .orderBy(desc(schema.inboundMessages.received_at))
     .limit(50);
 
@@ -72,26 +82,29 @@ export default async function MisMensajesPage() {
             <li key={msg.id}>
               <Card>
                 <CardContent className="py-4 px-4 sm:px-5 space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
-                    <span className="font-medium text-zinc-700">
-                      {kindLabel(msg.kind, msg.mime_type ?? null)}
-                    </span>
-                    <span>·</span>
-                    <span>
-                      {new Date(msg.received_at).toLocaleString('es-AR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                    {(msg.processed_at || msg.document_text) && (
-                      <>
-                        <span>·</span>
-                        <span className="text-green-600 font-medium">procesado</span>
-                      </>
-                    )}
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 text-xs text-zinc-500 flex-wrap">
+                      <span className="font-medium text-zinc-700">
+                        {kindLabel(msg.kind, msg.mime_type ?? null)}
+                      </span>
+                      <span>·</span>
+                      <span>
+                        {new Date(msg.received_at).toLocaleString('es-AR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {(msg.processed_at || msg.document_text) && (
+                        <>
+                          <span>·</span>
+                          <span className="text-green-600 font-medium">procesado</span>
+                        </>
+                      )}
+                    </div>
+                    <DeleteMessageButton messageId={msg.id} />
                   </div>
 
                   {msg.kind === 'text' && msg.text_content && (
