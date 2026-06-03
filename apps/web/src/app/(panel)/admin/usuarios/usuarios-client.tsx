@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,6 +47,21 @@ interface Props {
   users: UserRow[];
 }
 
+type ActiveTokenInfo = {
+  active: true;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+} | { active: false };
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export function UsuariosClient({ users: initialUsers }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -57,55 +72,14 @@ export function UsuariosClient({ users: initialUsers }: Props) {
   const [error, setError] = useState('');
   const [showInactive, setShowInactive] = useState(false);
 
-  // Estado del link de acceso del usuario que está siendo editado
+  // Modal de link de acceso (independiente del modal de editar)
+  const [linkUser, setLinkUser] = useState<UserRow | null>(null);
+  const [tokenInfo, setTokenInfo] = useState<ActiveTokenInfo | null>(null);
   const [tokenUrl, setTokenUrl] = useState<string | null>(null);
   const [tokenExpiresAt, setTokenExpiresAt] = useState<string | null>(null);
   const [tokenBusy, setTokenBusy] = useState(false);
   const [tokenCopied, setTokenCopied] = useState(false);
-
-  async function handleGenerateLink() {
-    if (!editing) return;
-    setTokenBusy(true);
-    setError('');
-    setTokenCopied(false);
-    try {
-      const res = await fetch(`/api/admin/users/${editing.id}/access-token`, { method: 'POST' });
-      const data = await res.json() as { loginUrl?: string; expiresAt?: string; error?: string };
-      if (!res.ok || !data.loginUrl) {
-        setError(data.error ?? 'No se pudo generar el link.');
-        return;
-      }
-      setTokenUrl(data.loginUrl);
-      setTokenExpiresAt(data.expiresAt ?? null);
-    } finally {
-      setTokenBusy(false);
-    }
-  }
-
-  async function handleRevokeLink() {
-    if (!editing) return;
-    if (!confirm('Revocar todos los links de acceso de este usuario? Va a tener que pedir uno nuevo.')) return;
-    setTokenBusy(true);
-    try {
-      await fetch(`/api/admin/users/${editing.id}/access-token`, { method: 'DELETE' });
-      setTokenUrl(null);
-      setTokenExpiresAt(null);
-      setTokenCopied(false);
-    } finally {
-      setTokenBusy(false);
-    }
-  }
-
-  async function copyToClipboard() {
-    if (!tokenUrl) return;
-    try {
-      await navigator.clipboard.writeText(tokenUrl);
-      setTokenCopied(true);
-      setTimeout(() => setTokenCopied(false), 2000);
-    } catch {
-      setTokenCopied(false);
-    }
-  }
+  const [tokenError, setTokenError] = useState('');
 
   const visible = showInactive ? users : users.filter(u => u.is_active);
 
@@ -127,9 +101,6 @@ export function UsuariosClient({ users: initialUsers }: Props) {
     });
     setEditing(user);
     setError('');
-    setTokenUrl(null);
-    setTokenExpiresAt(null);
-    setTokenCopied(false);
     setModal('edit');
   }
 
@@ -137,9 +108,101 @@ export function UsuariosClient({ users: initialUsers }: Props) {
     setModal(null);
     setEditing(null);
     setError('');
+  }
+
+  function openLink(user: UserRow) {
+    setLinkUser(user);
+    setTokenInfo(null);
     setTokenUrl(null);
     setTokenExpiresAt(null);
     setTokenCopied(false);
+    setTokenError('');
+  }
+
+  function closeLink() {
+    setLinkUser(null);
+    setTokenInfo(null);
+    setTokenUrl(null);
+    setTokenExpiresAt(null);
+    setTokenCopied(false);
+    setTokenError('');
+  }
+
+  // Cargar el estado del token activo cuando se abre el modal de link
+  useEffect(() => {
+    if (!linkUser) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/admin/users/${linkUser.id}/access-token`);
+        if (!res.ok) return;
+        const data = await res.json() as ActiveTokenInfo;
+        if (!cancelled) setTokenInfo(data);
+      } catch {
+        /* silencio */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [linkUser]);
+
+  async function handleGenerateLink() {
+    if (!linkUser) return;
+    setTokenBusy(true);
+    setTokenError('');
+    setTokenCopied(false);
+    try {
+      const res = await fetch(`/api/admin/users/${linkUser.id}/access-token`, { method: 'POST' });
+      const data = await res.json() as { loginUrl?: string; expiresAt?: string; error?: string };
+      if (!res.ok || !data.loginUrl) {
+        setTokenError(data.error ?? 'No se pudo generar el link.');
+        return;
+      }
+      setTokenUrl(data.loginUrl);
+      setTokenExpiresAt(data.expiresAt ?? null);
+      // Auto-copia al generar para que en mobile no haya que enfocar el input
+      try {
+        await navigator.clipboard.writeText(data.loginUrl);
+        setTokenCopied(true);
+        setTimeout(() => setTokenCopied(false), 2500);
+      } catch {
+        /* sin clipboard (Safari sin HTTPS, etc.) — el usuario copia manual */
+      }
+      // Refrescar el estado del token activo
+      setTokenInfo({
+        active: true,
+        createdAt: new Date().toISOString(),
+        expiresAt: data.expiresAt ?? new Date().toISOString(),
+        lastUsedAt: null,
+      });
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+
+  async function handleRevokeLink() {
+    if (!linkUser) return;
+    if (!confirm('Revocar todos los links de acceso de este usuario? Va a tener que pedir uno nuevo.')) return;
+    setTokenBusy(true);
+    try {
+      await fetch(`/api/admin/users/${linkUser.id}/access-token`, { method: 'DELETE' });
+      setTokenUrl(null);
+      setTokenExpiresAt(null);
+      setTokenCopied(false);
+      setTokenInfo({ active: false });
+    } finally {
+      setTokenBusy(false);
+    }
+  }
+
+  async function copyToClipboard() {
+    if (!tokenUrl) return;
+    try {
+      await navigator.clipboard.writeText(tokenUrl);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    } catch {
+      setTokenCopied(false);
+    }
   }
 
   async function handleCreate() {
@@ -170,7 +233,6 @@ export function UsuariosClient({ users: initialUsers }: Props) {
 
     closeModal();
     startTransition(() => { router.refresh(); });
-    // Optimistic update
     const data = await res.json().catch(() => null);
     if (data?.user) {
       setUsers(prev => [...prev, {
@@ -297,10 +359,10 @@ export function UsuariosClient({ users: initialUsers }: Props) {
                     {ROLE_LABELS[user.role] ?? user.role}
                   </span>
                 </div>
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center justify-between pt-1 gap-2">
                   <button
                     onClick={() => toggleActive(user)}
-                    className={`text-xs font-medium px-2 py-1 rounded ${
+                    className={`text-xs font-medium px-2 py-1 rounded shrink-0 ${
                       user.is_active
                         ? 'bg-green-100 text-green-700'
                         : 'bg-zinc-100 text-zinc-500'
@@ -308,9 +370,18 @@ export function UsuariosClient({ users: initialUsers }: Props) {
                   >
                     {user.is_active ? 'Activo' : 'Inactivo'}
                   </button>
-                  <Button onClick={() => openEdit(user)} className="h-8 px-3 text-xs">
-                    Editar
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => openLink(user)}
+                      disabled={!user.is_active}
+                      className="h-8 px-3 text-xs bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                    >
+                      Link
+                    </Button>
+                    <Button onClick={() => openEdit(user)} className="h-8 px-3 text-xs">
+                      Editar
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -359,12 +430,21 @@ export function UsuariosClient({ users: initialUsers }: Props) {
                     </button>
                   </td>
                   <td className="px-4 py-2.5 text-right">
-                    <Button
-                      onClick={() => openEdit(user)}
-                      className="h-7 px-3 text-xs"
-                    >
-                      Editar
-                    </Button>
+                    <div className="inline-flex gap-2">
+                      <Button
+                        onClick={() => openLink(user)}
+                        disabled={!user.is_active}
+                        className="h-7 px-3 text-xs bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+                      >
+                        Link
+                      </Button>
+                      <Button
+                        onClick={() => openEdit(user)}
+                        className="h-7 px-3 text-xs"
+                      >
+                        Editar
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -382,14 +462,14 @@ export function UsuariosClient({ users: initialUsers }: Props) {
 
       {/* Modal crear / editar */}
       {modal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md my-4 max-h-[calc(100vh-2rem)] flex flex-col">
             <div className="px-6 py-4 border-b">
               <h2 className="text-lg font-semibold">
                 {modal === 'create' ? 'Nuevo usuario' : `Editar — ${editing?.full_name}`}
               </h2>
             </div>
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-6 py-5 space-y-4 overflow-y-auto">
               <div>
                 <Label>Nombre completo *</Label>
                 <Input
@@ -450,60 +530,6 @@ export function UsuariosClient({ users: initialUsers }: Props) {
                 </label>
               )}
 
-              {modal === 'edit' && (
-                <div className="border-t pt-4 mt-2">
-                  <Label>Link personal de acceso</Label>
-                  <p className="text-xs text-zinc-500 mt-1">
-                    Generá un link único para que ingrese al panel. Compartiselo por WhatsApp y se copia con el botón.
-                  </p>
-
-                  {tokenUrl ? (
-                    <div className="mt-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          readOnly
-                          value={tokenUrl}
-                          onFocus={e => e.target.select()}
-                          className="flex-1 font-mono text-xs px-2 py-1.5 border rounded bg-zinc-50 text-zinc-700"
-                        />
-                        <Button
-                          onClick={copyToClipboard}
-                          className="h-8 px-3 text-xs"
-                        >
-                          {tokenCopied ? 'Copiado' : 'Copiar'}
-                        </Button>
-                      </div>
-                      {tokenExpiresAt && (
-                        <p className="text-xs text-zinc-500">
-                          Válido hasta {new Date(tokenExpiresAt).toLocaleDateString('es-AR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                          })}.
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        onClick={handleGenerateLink}
-                        disabled={tokenBusy || !form.is_active}
-                        className="h-8 px-3 text-xs"
-                      >
-                        {tokenBusy ? 'Generando…' : 'Generar link'}
-                      </Button>
-                      <Button
-                        onClick={handleRevokeLink}
-                        disabled={tokenBusy}
-                        className="h-8 px-3 text-xs bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
-                      >
-                        Revocar activos
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
               {error && (
                 <p className="text-sm text-red-600">{error}</p>
               )}
@@ -517,6 +543,95 @@ export function UsuariosClient({ users: initialUsers }: Props) {
                 disabled={isPending}
               >
                 {modal === 'create' ? 'Crear usuario' : 'Guardar cambios'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal link de acceso */}
+      {linkUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md my-4 max-h-[calc(100vh-2rem)] flex flex-col">
+            <div className="px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold truncate">Link de acceso — {linkUser.full_name}</h2>
+            </div>
+
+            <div className="px-6 py-5 space-y-4 overflow-y-auto">
+              <p className="text-sm text-zinc-600 leading-relaxed">
+                Generá un link único para que esta persona ingrese al panel. Compartiselo por WhatsApp; el link sirve desde cualquier dispositivo hasta su fecha de vencimiento.
+              </p>
+
+              {/* Estado del token activo (sólo lectura) */}
+              {tokenInfo && tokenInfo.active && !tokenUrl && (
+                <div className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 space-y-0.5">
+                  <p><strong>Link activo</strong></p>
+                  <p>Vence el {formatDate(tokenInfo.expiresAt)}.</p>
+                  {tokenInfo.lastUsedAt
+                    ? <p>Última vez usado: {formatDate(tokenInfo.lastUsedAt)}.</p>
+                    : <p>Aún no se usó.</p>}
+                  <p className="text-emerald-700 mt-1">El link no se puede recuperar. Si lo perdiste, generá uno nuevo (el actual queda revocado).</p>
+                </div>
+              )}
+              {tokenInfo && !tokenInfo.active && !tokenUrl && (
+                <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
+                  Esta persona no tiene un link activo todavía.
+                </div>
+              )}
+
+              {/* URL recién generada */}
+              {tokenUrl && (
+                <div className="space-y-2">
+                  <Label>URL para compartir</Label>
+                  <input
+                    readOnly
+                    value={tokenUrl}
+                    onFocus={e => e.target.select()}
+                    className="w-full font-mono text-xs px-2 py-2 border rounded bg-zinc-50 text-zinc-700 break-all"
+                  />
+                  <Button
+                    onClick={copyToClipboard}
+                    className="w-full h-9 text-sm"
+                  >
+                    {tokenCopied ? '✓ Copiado al portapapeles' : 'Copiar link'}
+                  </Button>
+                  {tokenExpiresAt && (
+                    <p className="text-xs text-zinc-500">
+                      Válido hasta {formatDate(tokenExpiresAt)}.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {tokenError && (
+                <p className="text-sm text-red-600">{tokenError}</p>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t flex flex-wrap justify-end gap-2">
+              {tokenInfo?.active && (
+                <Button
+                  onClick={handleRevokeLink}
+                  disabled={tokenBusy}
+                  className="h-9 px-3 text-sm bg-red-50 text-red-700 hover:bg-red-100"
+                >
+                  Revocar
+                </Button>
+              )}
+              <Button
+                onClick={handleGenerateLink}
+                disabled={tokenBusy}
+                className="h-9 px-3 text-sm"
+              >
+                {tokenBusy
+                  ? 'Generando…'
+                  : tokenInfo?.active ? 'Generar uno nuevo' : 'Generar link'}
+              </Button>
+              <Button
+                onClick={closeLink}
+                className="h-9 px-3 text-sm bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+              >
+                Cerrar
               </Button>
             </div>
           </div>
