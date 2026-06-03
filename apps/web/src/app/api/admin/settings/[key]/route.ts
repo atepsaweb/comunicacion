@@ -1,9 +1,14 @@
+// Endpoint para actualizar un parámetro de configuración individual por su clave.
+// PATCH /api/admin/settings/:key con { value } actualiza o crea el parámetro.
+// Es un upsert (insert + on conflict update), por lo que siempre resulta en el valor actualizado.
+// Solo el rol press_admin puede modificar la configuración.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
+import { clearWhatsAppProviderCache } from '@/lib/whatsapp';
 
 export async function PATCH(
   req: NextRequest,
@@ -37,6 +42,8 @@ export async function PATCH(
         updated_at: sql`now()`,
       },
     });
+
+  if (key === 'whatsapp_provider') clearWhatsAppProviderCache();
 
   return NextResponse.json({ ok: true });
 }

@@ -1,3 +1,10 @@
+// Endpoint para generar y enviar una pregunta de seguimiento al secretario por WhatsApp.
+// n8n lo llama cuando assess-completeness detecta que necesita más información.
+// El proceso:
+//   1. Genera el texto de la pregunta usando Claude
+//   2. La envía al secretario por WhatsApp
+//   3. Registra el envío en outbound_messages
+//   4. Marca el reporte como 'awaiting_followup' e incrementa el contador de preguntas
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
@@ -82,8 +89,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const question = result.text.trim();
 
   // Enviar por WhatsApp
+  let sendResult;
   try {
-    await sendWhatsAppText(user.phone_e164, question);
+    sendResult = await sendWhatsAppText(user.phone_e164, question);
   } catch (err) {
     logger.error({ err, reportId, phone: user.phone_e164 }, 'followup question send failed');
     return NextResponse.json({ error: 'WhatsApp send failed' }, { status: 503 });
@@ -92,7 +100,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Persistir en outbound_messages
   await db.insert(schema.outboundMessages).values({
     id: uuidv7(),
-    provider: 'waha',
+    provider: sendResult.provider,
+    provider_message_id: sendResult.providerMessageId,
     to_phone_e164: user.phone_e164,
     user_id: report.user_id,
     cycle_id: report.cycle_id ?? null,

@@ -205,6 +205,41 @@ El proyecto tiene componentes en distintos lenguajes (Next.js en TypeScript, tra
 
 ---
 
+## ADR-010 — Migración de WAHA a Meta Cloud API con coexistencia por flag
+
+**Fecha**: 2026-06-03
+**Estado**: Aceptada
+
+### Contexto
+WAHA (whatsapp-web.js corriendo en Chromium headless) funcionó para arrancar pero arrastra riesgos: el cliente no oficial puede ser bloqueado por WhatsApp en cualquier momento, los multi-device quirks (`@lid`, `_data.type`, duplicación de eventos) consumen tiempo, y no hay SLA. Con las credenciales de Meta Cloud API ya emitidas para el número ATEPSA, corresponde mover el tráfico al canal oficial.
+
+Restricciones del canal oficial:
+- Mensajes proactivos (fuera de la ventana de 24h del usuario) exigen templates HSM previamente aprobados por Meta.
+- No soporta envío a grupos.
+
+### Opciones consideradas
+1. **Switch directo en un PR**: simple pero sin rollback rápido si algo se rompe.
+2. **Coexistencia con feature flag** ← elegida. Setting `whatsapp_provider` en DB decide en runtime; permite mover de `waha` a `meta` y volver atrás sin redeploy.
+3. **Migración a Evolution API + Meta**: descartado, mantener dos proveedores no-oficiales no resuelve el problema de fondo.
+
+### Decisión
+- Setting `whatsapp_provider` (`waha` | `meta`) en `app.system_settings`. Lee el dispatcher en runtime (cache de 30s).
+- Cliente Meta nuevo en `apps/web/src/lib/meta-cloud.ts` (sendText, sendTemplate, downloadMedia).
+- Dispatcher en `apps/web/src/lib/whatsapp.ts` expone `sendWhatsAppText` (texto libre, solo válido en ventana 24h en Meta) y `sendWhatsAppTemplate` (proactivo con template + fallback).
+- Webhook entrante de Meta en `/api/webhooks/meta`: valida `X-Hub-Signature-256` con `META_APP_SECRET`, normaliza el payload al formato existente, reenvía al webhook de n8n. Mantiene intacta la cadena de routing posterior (transcripción, extracción, classify-intent).
+- Templates lógicos mapeados en setting `whatsapp_meta_templates`. Keys: `otp_login`, `weekly_kickoff`, `weekly_reminder`, `weekly_delivery`, `escalation_alert`. Los names tienen que coincidir exactamente con los aprobados en Business Manager.
+- Eliminados los envíos a grupos (Meta Cloud API no los soporta): borrados los workflows `group-*.json` y el endpoint `/api/internal/group-notifications`.
+
+### Consecuencias
+- ✅ Canal oficial con SLA; eliminamos el riesgo de bloqueo de WhatsApp.
+- ✅ Rollback inmediato cambiando el setting si el switch sale mal.
+- ✅ Todos los workflows de n8n siguen funcionando sin cambios — solo el de escalation fue actualizado para pasar por el panel.
+- ⚠️ Hasta que los templates estén aprobados, no se puede mover el setting a `meta`: los proactivos fallarían (Meta rechaza texto libre fuera de la ventana 24h con error 131047).
+- ⚠️ Perdemos envío a grupos: la coordinación que iba al grupo del Secretariado ahora se distribuye via 1-a-1 (devolución del lunes) o se reemplaza por otros canales.
+- 🔄 Después de un período estable con `whatsapp_provider=meta`, deprecar WAHA y bajar el container `wppconnect`.
+
+---
+
 ## Cómo agregar una decisión nueva
 
 1. Copiar el formato de ADR de arriba.

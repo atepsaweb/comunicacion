@@ -1,9 +1,16 @@
+// Endpoint que recibe los mensajes entrantes de WhatsApp desde WAHA via webhook.
+// Este es el punto de entrada principal del sistema: cada vez que un secretario
+// envía un mensaje al número de WhatsApp de ATEPSA, WAHA llama a este endpoint.
+// El endpoint guarda el mensaje en la base de datos, descarga el archivo si corresponde
+// (audio, imagen, documento), y devuelve flags para que n8n sepa cómo procesarlo.
+// Solo puede ser llamado por n8n (requiere el INTERNAL_API_SECRET).
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, or, desc } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
 import { downloadWahaMedia, resolveWahaPhone } from '@/lib/waha-media';
+import { downloadMetaMedia } from '@/lib/meta-cloud';
 import { logger } from '@/lib/logger';
 
 // Tipos MIME procesables como documentos (extracción de texto)
@@ -23,10 +30,13 @@ const IMAGE_MIME_TYPES = new Set([
   'image/gif',
 ]);
 
-// Payload que WAHA envía al webhook (subset relevante)
+// Payload que WAHA envía al webhook (subset relevante).
+// El webhook de Meta normaliza al mismo formato, agregando `provider: 'meta'`
+// y `payload.media.mediaId` (en lugar de `media.url`).
 type WahaWebhookPayload = {
   event?: string;
   session?: string;
+  provider?: 'waha' | 'meta';
   payload?: {
     id: string;
     timestamp: number;
@@ -39,14 +49,19 @@ type WahaWebhookPayload = {
     type?: string | null;
     // WEBJS puede omitir `type` en el nivel superior; el tipo real está en _data
     _data?: { type?: string | null };
-    // WAHA con WHATSAPP_DOWNLOAD_MEDIA descarga el archivo y lo expone aquí
-    media?: { url?: string; mimetype?: string; filename?: string | null } | null;
+    // WAHA: { url, mimetype }; Meta: { mediaId, mimetype }
+    media?: {
+      url?: string;
+      mediaId?: string;
+      mimetype?: string;
+      filename?: string | null;
+    } | null;
     // Threading: mensaje que el secretario está citando
     quotedMsg?: { id?: string; body?: string } | null;
   };
 };
 
-/** Convierte "5491112345678@c.us" → "+5491112345678" */
+/** Convierte "5491112345678@c.us" o "5491112345678" → "+5491112345678" */
 function normalizeE164(waPhone: string): string {
   return `+${waPhone.split('@')[0]}`;
 }
@@ -79,6 +94,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const body = (await req.json()) as WahaWebhookPayload;
   const { event, payload } = body;
+  const provider = body.provider === 'meta' ? 'meta' : 'waha';
 
   if (!payload || payload.fromMe) {
     return NextResponse.json({ discarded: true, reason: 'not_inbound_message' });
@@ -103,9 +119,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ discarded: true, reason: 'internal_wa_message', waType: rawType });
   }
 
-  // WhatsApp multi-device puede enviar from como LID (@lid) en vez de @c.us
+  // WhatsApp multi-device (solo WAHA) puede enviar from como LID (@lid)
   let fromPhone = normalizeE164(payload.from);
-  if (payload.from.endsWith('@lid')) {
+  if (provider === 'waha' && payload.from.endsWith('@lid')) {
     const resolved = await resolveWahaPhone(payload.from);
     if (resolved) fromPhone = resolved;
   }
@@ -147,7 +163,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const [msg] = await db
       .insert(schema.inboundMessages)
       .values({
-        provider: 'waha',
+        provider,
         provider_message_id: payload.id,
         from_phone_e164: fromPhone,
         user_id: null,
@@ -171,14 +187,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let audioPath: string | null = null;
   let documentPath: string | null = null;
 
+  const downloadByProvider = async (destPath: string): Promise<void> => {
+    const p = payload;
+    if (provider === 'meta') {
+      const mediaId = p.media?.mediaId;
+      if (!mediaId) throw new Error('meta payload missing media.mediaId');
+      await downloadMetaMedia(mediaId, destPath);
+    } else {
+      await downloadWahaMedia(p.id, destPath, p.media?.url ?? undefined);
+    }
+  };
+
   // Descargar audio
   if (kind === 'audio') {
     const destPath = `/data/audio/inbound/${cycleSegment}/${user.id}/${payload.id}.ogg`;
     try {
-      await downloadWahaMedia(payload.id, destPath, payload.media?.url ?? undefined);
+      await downloadByProvider(destPath);
       audioPath = destPath;
     } catch (err) {
-      logger.error({ err, waMessageId: payload.id }, 'audio download failed — persisting without path');
+      logger.error({ err, waMessageId: payload.id, provider }, 'audio download failed — persisting without path');
     }
   }
 
@@ -189,10 +216,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const ext = extFromMime(mimeType);
       const destPath = `/data/documents/inbound/${cycleSegment}/${user.id}/${payload.id}.${ext}`;
       try {
-        await downloadWahaMedia(payload.id, destPath, payload.media?.url ?? undefined);
+        await downloadByProvider(destPath);
         documentPath = destPath;
       } catch (err) {
-        logger.error({ err, waMessageId: payload.id }, 'document download failed — persisting without path');
+        logger.error({ err, waMessageId: payload.id, provider }, 'document download failed — persisting without path');
       }
     }
   }
@@ -212,7 +239,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const [inserted] = await db
       .insert(schema.inboundMessages)
       .values({
-        provider: 'waha',
+        provider,
         provider_message_id: payload.id,
         from_phone_e164: fromPhone,
         user_id: user.id,

@@ -1,3 +1,11 @@
+// Endpoint para procesar un mensaje de ausencia recibido por WhatsApp.
+// n8n lo llama cuando clasifica un mensaje con intent 'absence_request' o 'weekly_pause'.
+// El proceso:
+//   1. Obtiene el texto del mensaje (o lo transcribe si es audio)
+//   2. Llama a Claude para parsear las fechas y el tipo de ausencia
+//   3. Crea el registro de ausencia en la base de datos
+//   4. Actualiza el reporte del ciclo con el estado correspondiente (paused/on_leave)
+//   5. Envía una confirmación por WhatsApp al secretario
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';
@@ -140,9 +148,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : `Registré tu ausencia del ${startsOn} al ${endsOn}${parsed.reason ? ` (${parsed.reason})` : ''}. Quedás excluido/a de los recordatorios en ese período.`;
 
   try {
-    await sendWhatsAppText(user.phone_e164, confirmText);
+    const result = await sendWhatsAppText(user.phone_e164, confirmText);
     await db.insert(schema.outboundMessages).values({
-      provider: 'waha',
+      provider: result.provider,
+      provider_message_id: result.providerMessageId,
       to_phone_e164: user.phone_e164,
       user_id: user.id,
       cycle_id: message.cycle_id ?? null,

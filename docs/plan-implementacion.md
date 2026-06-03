@@ -247,10 +247,14 @@ Diez fases. Cada fase tiene **objetivo**, **deliverables**, **criterio de acepta
 **Objetivo**: estabilidad de producción y migración del provider de WhatsApp.
 
 **Tareas**:
-- [ ] Implementar `MetaCloudProvider` que cumple `WhatsAppProvider`.
-- [ ] Trámite con Meta para Business Account, verificación.
-- [ ] Migrar el número (esto requiere coordinación con Meta).
-- [ ] Cambiar `WHATSAPP_PROVIDER=meta` en `.env`, deploy.
+- [x] Cliente Meta Cloud API (`apps/web/src/lib/meta-cloud.ts`) + dispatcher por proveedor en `whatsapp.ts`.
+- [x] Webhook entrante `/api/webhooks/meta` con validación HMAC y reenvío a n8n.
+- [x] Setting `whatsapp_provider` (waha|meta) y mapa `whatsapp_meta_templates` en `/admin/settings`.
+- [x] Endpoint genérico `/api/internal/whatsapp/send` para que workflows pasen por el dispatcher (escalation-check actualizado).
+- [x] Eliminados envíos a grupos (Meta no los soporta): borrados workflows `group-*` y endpoint `group-notifications`.
+- [ ] **Crear y aprobar templates en Meta Business Manager**: `atepsa_otp_login`, `atepsa_weekly_kickoff`, `atepsa_weekly_reminder`, `atepsa_weekly_delivery`, `atepsa_escalation_alert`.
+- [ ] Configurar webhook en Meta Developers apuntando a `https://panel.atepsa.org.ar/api/webhooks/meta` con el `META_WEBHOOK_VERIFY_TOKEN` definido en `.env`.
+- [ ] Una vez aprobados los templates: cambiar setting `whatsapp_provider=meta` desde `/admin/settings`. Rollback: volver a `waha`.
 - [x] Backups: restore validado 2026-05-30. Backup 916KB restaurado a DB temporal, verificado 28 usuarios + ciclos + reportes + prompts. Cron corregido (container name).
 - [x] Rate limiting en endpoints internos: 100 req/min por IP en middleware (Map en memoria).
 - [ ] Monitoring básico: uptime check externo, alertas a Julián.

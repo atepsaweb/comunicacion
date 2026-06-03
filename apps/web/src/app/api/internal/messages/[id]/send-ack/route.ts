@@ -59,11 +59,12 @@ export async function POST(req: NextRequest, { params }: Props): Promise<NextRes
     : '✓ Recibido. No hay un ciclo activo en este momento — tu mensaje quedó guardado para cuando abra la próxima semana.';
 
   try {
-    await sendWhatsAppText(user.phone_e164, ackText);
+    const result = await sendWhatsAppText(user.phone_e164, ackText);
 
     // Registro en outbound para historial
     await db.insert(schema.outboundMessages).values({
-      provider: 'waha',
+      provider: result.provider,
+      provider_message_id: result.providerMessageId,
       to_phone_e164: user.phone_e164,
       user_id: user.id,
       cycle_id: message.cycle_id ?? null,

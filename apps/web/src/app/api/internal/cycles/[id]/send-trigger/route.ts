@@ -1,9 +1,15 @@
+// Endpoint para enviar el mensaje inicial del ciclo a todos los secretarios.
+// n8n lo llama cuando abre el ciclo (jueves 10:00 ART).
+// Para cada secretario que no esté de licencia, envía un mensaje personalizado:
+//   - Si reportó la semana anterior, incluye sus temas previos como recordatorio de continuidad
+//   - Si no reportó antes, envía el mensaje estándar
+// Esta personalización es la "memoria cross-week" que ayuda a los secretarios a dar seguimiento.
 import { NextRequest, NextResponse } from 'next/server';
 import { and, desc, eq, gte, inArray, lte, not } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
-import { sendWhatsAppText } from '@/lib/whatsapp';
+import { sendWhatsAppTemplate } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
 
 const TRIGGER_BASE = `*ATEPSA — Reporte semanal*
@@ -107,9 +113,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       const message = buildTriggerMessage(prevItems);
       if (prevItems.length > 0) personalized++;
 
-      await sendWhatsAppText(user.phone_e164, message);
+      const result = await sendWhatsAppTemplate(
+        user.phone_e164,
+        'weekly_kickoff',
+        { firstName: user.full_name.split(/\s+/)[0] ?? user.full_name },
+        message,
+      );
       await db.insert(schema.outboundMessages).values({
-        provider: 'waha',
+        provider: result.provider,
+        provider_message_id: result.providerMessageId,
         to_phone_e164: user.phone_e164,
         user_id: user.id,
         cycle_id: params.id,

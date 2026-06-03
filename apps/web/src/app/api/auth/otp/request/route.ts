@@ -1,10 +1,18 @@
+// Endpoint que genera y envía el código OTP por WhatsApp cuando alguien quiere iniciar sesión.
+// Proceso:
+//   1. Valida el número de teléfono ingresado
+//   2. Verifica que el usuario esté registrado en el sistema
+//   3. Aplica rate limiting (máx 1 código por minuto) para evitar spam
+//   4. Genera un código aleatorio de 6 dígitos, lo hashea con bcrypt y lo guarda en la DB
+//   5. Envía el código al teléfono por WhatsApp
+// Si el teléfono no está registrado, responde "ok" igual (por seguridad, no revela datos)
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { db } from '@/db';
 import { otpCodes, users } from '@/db/schema';
-import { sendWhatsAppText } from '@/lib/whatsapp';
+import { sendWhatsAppTemplate } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
 import { normalizeArgPhone } from '@/lib/utils';
 import { uuidv7 } from 'uuidv7';
@@ -86,8 +94,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   });
 
   try {
-    await sendWhatsAppText(
+    await sendWhatsAppTemplate(
       phone,
+      'otp_login',
+      { code },
       `Tu código de acceso a ATEPSA: *${code}*\nVálido por 5 minutos. No lo compartás.`,
     );
   } catch (err) {

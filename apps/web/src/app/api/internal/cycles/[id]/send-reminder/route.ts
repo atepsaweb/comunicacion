@@ -1,9 +1,15 @@
+// Endpoint para enviar recordatorios a los secretarios que todavía no reportaron.
+// n8n lo llama el viernes al mediodía (12:00 ART) cuando el ciclo está abierto.
+// El endpoint determina a quiénes enviar:
+//   - Excluye a quienes ya reportaron (cualquier estado que no sea no_report)
+//   - Excluye a quienes tienen ausencia registrada que cubre la semana actual
+// Luego envía el mensaje de recordatorio y registra el envío en outbound_messages.
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, gte, lte } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
-import { sendWhatsAppText } from '@/lib/whatsapp';
+import { sendWhatsAppTemplate } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
 
 const REMINDER_MESSAGE = `*ATEPSA — Recordatorio de reporte*
@@ -68,9 +74,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   for (const user of targets) {
     try {
-      await sendWhatsAppText(user.phone_e164, REMINDER_MESSAGE);
+      const result = await sendWhatsAppTemplate(
+        user.phone_e164,
+        'weekly_reminder',
+        { firstName: user.full_name.split(/\s+/)[0] ?? user.full_name },
+        REMINDER_MESSAGE,
+      );
       await db.insert(schema.outboundMessages).values({
-        provider: 'waha',
+        provider: result.provider,
+        provider_message_id: result.providerMessageId,
         to_phone_e164: user.phone_e164,
         user_id: user.id,
         cycle_id: params.id,
