@@ -1,14 +1,19 @@
 /**
  * POST /api/internal/messages/:id/send-ack
  *
- * Envía una confirmación de recepción al secretario por WhatsApp.
- * Se llama desde n8n después de que el reporte fue procesado y
- * no se generó repregunta de seguimiento.
+ * Envía un mensaje de respuesta al secretario por WhatsApp.
+ * Se llama desde n8n después de procesar el mensaje:
+ *   - Si no se generó repregunta de seguimiento: envía el ack.
+ *   - Si hay repregunta, esa pregunta ya actúa como confirmación y este
+ *     endpoint no se invoca.
  *
- * Si hay repregunta, esa misma pregunta ya actúa como confirmación.
+ * El texto varía según el intent del mensaje:
+ *   - greeting: saludo personalizado + invitación a reportar
+ *   - report/followup (con ítems): confirmación de que el reporte quedó actualizado
+ *   - sin ítems / unknown: invitación a mandar las novedades
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
@@ -26,21 +31,20 @@ export async function POST(req: NextRequest, { params }: Props): Promise<NextRes
 
   const message = await db.query.inboundMessages.findFirst({
     where: eq(schema.inboundMessages.id, params.id),
-    columns: { id: true, user_id: true, cycle_id: true },
+    columns: { id: true, user_id: true, cycle_id: true, intent: true },
   });
 
   if (!message) {
     return NextResponse.json({ error: 'Message not found' }, { status: 404 });
   }
   if (!message.user_id) {
-    // Mensaje sin usuario registrado — ya fue manejado antes, no hay a quién responder
     return NextResponse.json({ ok: false, reason: 'no_user' });
   }
 
   const [user, cycle] = await Promise.all([
     db.query.users.findFirst({
       where: eq(schema.users.id, message.user_id),
-      columns: { id: true, phone_e164: true },
+      columns: { id: true, phone_e164: true, full_name: true },
     }),
     message.cycle_id
       ? db.query.weeklyCycles.findFirst({
@@ -54,14 +58,51 @@ export async function POST(req: NextRequest, { params }: Props): Promise<NextRes
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  const ackText = cycle
-    ? `✓ Recibido. Tu reporte de la semana ${cycle.iso_week}/${cycle.year} quedó actualizado.`
-    : '✓ Recibido. No hay un ciclo activo en este momento — tu mensaje quedó guardado para cuando abra la próxima semana.';
+  const firstName = user.full_name.split(/\s+/).pop() ?? user.full_name;
+
+  // Contar ítems del reporte actual para este secretario/ciclo
+  let itemCount = 0;
+  if (message.cycle_id) {
+    const report = await db.query.reports.findFirst({
+      where: and(
+        eq(schema.reports.user_id, message.user_id),
+        eq(schema.reports.cycle_id, message.cycle_id),
+      ),
+      columns: { id: true },
+    });
+    if (report) {
+      const items = await db.query.reportItems.findMany({
+        where: eq(schema.reportItems.report_id, report.id),
+        columns: { id: true },
+      });
+      itemCount = items.length;
+    }
+  }
+
+  // Construir el texto de respuesta según el intent y el contexto
+  const intent = message.intent;
+  let ackText: string;
+
+  if (intent === 'greeting') {
+    // Saludo sin contenido: responder el saludo e invitar a reportar
+    ackText = cycle
+      ? `¡Hola, ${firstName}! 👋 ¿Cómo estás?\n\nCuando quieras, contame qué hiciste esta semana — reuniones, gestiones, novedades laborales. Un audio o texto está perfecto.`
+      : `¡Hola, ${firstName}! 👋 Todavía no hay un ciclo de reporte abierto, pero cuando abra podés mandarme tus novedades de la semana por audio o texto.`;
+  } else if (itemCount > 0) {
+    // Reporte con contenido: confirmar que quedó registrado
+    ackText = cycle
+      ? `✓ Recibido, ${firstName}. Tu reporte de la semana ${cycle.iso_week}/${cycle.year} quedó actualizado.`
+      : `✓ Recibido, ${firstName}. Tu mensaje quedó guardado.`;
+  } else {
+    // Sin ítems extraídos (mensaje vago, demasiado corto o fuera de contexto)
+    ackText = cycle
+      ? `¡Hola, ${firstName}! 👋 Tu mensaje llegó, pero no pude extraer novedades para el reporte.\n\nSi tenés algo para reportar esta semana, mandalo en un audio o texto contando brevemente qué hiciste.`
+      : `¡Hola, ${firstName}! Tu mensaje llegó. No hay un ciclo activo ahora, pero cuando abra podés mandarme tus novedades.`;
+  }
 
   try {
     const result = await sendWhatsAppText(user.phone_e164, ackText);
 
-    // Registro en outbound para historial
     await db.insert(schema.outboundMessages).values({
       provider: result.provider,
       provider_message_id: result.providerMessageId,
@@ -74,9 +115,8 @@ export async function POST(req: NextRequest, { params }: Props): Promise<NextRes
       delivery_status: 'sent',
     });
 
-    logger.info({ messageId: params.id, userId: user.id }, 'ack sent');
+    logger.info({ messageId: params.id, userId: user.id, intent, itemCount }, 'ack sent');
   } catch (err) {
-    // No fatal — si falla el ack el reporte ya fue procesado igual
     logger.warn({ err, messageId: params.id }, 'ack send failed (non-fatal)');
   }
 
