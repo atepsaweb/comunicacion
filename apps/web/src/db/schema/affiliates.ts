@@ -4,7 +4,7 @@
 // Sirve principalmente como contexto para que la IA reconozca nombres y los
 // asocie a su dependencia en lugar de tirarlos como menciones sueltas en el
 // glosario.
-import { boolean, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { uuidv7 } from 'uuidv7';
 import { appSchema, users } from './users';
 
@@ -13,10 +13,14 @@ export const affiliates = appSchema.table('affiliates', {
   // Datos identificatorios
   last_name: text('last_name').notNull(),
   first_name: text('first_name').notNull(),
-  // Dependencia: estación / gerencia / sector dentro de EANA u otro organismo
-  // (ej: "Bariloche", "CRT Ezeiza", "Gerencia de Seguridad").
+  // Campos de delegado
+  aeropuerto: text('aeropuerto'),   // Estación / aeropuerto (ej: "Ezeiza", "Bariloche")
+  organismo:  text('organismo'),    // EANA | ANAC | otro
+  rama:       text('rama'),         // Rama técnica: CTA, AIS, CNSE, COM, SAR, ADMIN…
+  tipo:       text('tipo'),         // 'Base' | 'Congresal' | 'Ambos'
+  vigencia:   date('vigencia'),     // Fecha de vencimiento del mandato
+  // Campos legacy (se mantienen por compatibilidad con datos anteriores)
   dependency: text('dependency'),
-  // Cargo o función específica (ej: "Vocal Suplente", "Delegado", "Jefe de Torre")
   position: text('position'),
   // Identificadores opcionales (no usados en login)
   dni: text('dni'),

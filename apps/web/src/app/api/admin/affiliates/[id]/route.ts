@@ -28,15 +28,20 @@ export async function PATCH(
   const setIf = <K extends keyof typeof update>(k: K, v: typeof update[K] | undefined) => {
     if (v !== undefined) update[k] = v;
   };
-  setIf('last_name', text('last_name') ?? undefined);
-  setIf('first_name', text('first_name') ?? undefined);
-  setIf('dependency', text('dependency'));
-  setIf('position', text('position'));
-  setIf('dni', text('dni'));
-  setIf('legajo', text('legajo'));
-  setIf('email', text('email'));
-  setIf('phone_e164', text('phone_e164'));
-  setIf('notes', text('notes'));
+  setIf('last_name',   text('last_name') ?? undefined);
+  setIf('first_name',  text('first_name') ?? undefined);
+  setIf('aeropuerto',  text('aeropuerto'));
+  setIf('organismo',   text('organismo'));
+  setIf('rama',        text('rama'));
+  setIf('tipo',        text('tipo'));
+  setIf('vigencia',    text('vigencia'));
+  setIf('dependency',  text('dependency'));
+  setIf('position',    text('position'));
+  setIf('dni',         text('dni'));
+  setIf('legajo',      text('legajo'));
+  setIf('email',       text('email'));
+  setIf('phone_e164',  text('phone_e164'));
+  setIf('notes',       text('notes'));
   if (typeof body.is_active === 'boolean') update.is_active = body.is_active;
   update.updated_at = new Date();
 

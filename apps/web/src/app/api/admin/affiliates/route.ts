@@ -31,20 +31,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const auth = await requireAdmin();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const body = await req.json() as {
-    last_name?: string;
-    first_name?: string;
-    dependency?: string;
-    position?: string;
-    dni?: string;
-    legajo?: string;
-    email?: string;
-    phone_e164?: string;
-    notes?: string;
-    is_active?: boolean;
-  };
-  const last_name = body.last_name?.trim();
-  const first_name = body.first_name?.trim();
+  const body = await req.json() as Record<string, unknown>;
+  const t = (k: string) => typeof body[k] === 'string' ? (body[k] as string).trim() || null : null;
+  const last_name = t('last_name');
+  const first_name = t('first_name');
   if (!last_name || !first_name) {
     return NextResponse.json({ error: 'apellido y nombre son requeridos' }, { status: 400 });
   }
@@ -54,15 +44,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .values({
       last_name,
       first_name,
-      dependency: body.dependency?.trim() || null,
-      position: body.position?.trim() || null,
-      dni: body.dni?.trim() || null,
-      legajo: body.legajo?.trim() || null,
-      email: body.email?.trim() || null,
-      phone_e164: body.phone_e164?.trim() || null,
-      notes: body.notes?.trim() || null,
-      is_active: body.is_active ?? true,
-      created_by: auth.session.user.id,
+      aeropuerto:  t('aeropuerto'),
+      organismo:   t('organismo'),
+      rama:        t('rama'),
+      tipo:        t('tipo'),
+      vigencia:    t('vigencia'),
+      dependency:  t('dependency') ?? t('aeropuerto'),
+      position:    t('position'),
+      dni:         t('dni'),
+      legajo:      t('legajo'),
+      email:       t('email'),
+      phone_e164:  t('phone_e164'),
+      notes:       t('notes'),
+      is_active:   typeof body.is_active === 'boolean' ? body.is_active : true,
+      created_by:  auth.session.user.id,
     })
     .returning({ id: schema.affiliates.id });
 
