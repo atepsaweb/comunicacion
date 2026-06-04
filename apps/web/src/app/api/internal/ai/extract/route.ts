@@ -1,3 +1,11 @@
+// Endpoint de extracción de reporte: el corazón del flujo de procesamiento.
+// n8n lo llama después de recibir un mensaje clasificado como 'report' o 'report_followup_reply'.
+// El endpoint:
+//   1. Resuelve el texto del mensaje (texto plano, transcripción de audio o extracción de documento)
+//   2. Busca el contexto del reporte actual del secretario (ítems ya reportados esta semana)
+//   3. Consulta el contexto de la semana anterior (para detectar continuidades)
+//   4. Llama a Claude con todo ese contexto para extraer los nuevos ítems
+//   5. Guarda los ítems en la base de datos, actualizando o creando el reporte
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and, desc, inArray, not } from 'drizzle-orm';
 import { db } from '@/db';
@@ -12,6 +20,7 @@ import {
   type ExtractReportOutput,
 } from '@/lib/ai/prompts/extract-report';
 import { getActivePrompt } from '@/lib/ai/db-prompts';
+import { getAffiliatesContextBlock } from '@/lib/affiliates';
 import { logger } from '@/lib/logger';
 
 type Body = { messageId: string };
@@ -135,6 +144,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { text: EXTRACT_REPORT_SYSTEM, cache: true },
         { text: EXTRACT_REPORT_FEW_SHOT, cache: true },
       ];
+
+  // Contexto cacheable con afiliados/delegados conocidos. La IA lo usa para
+  // identificar personas mencionadas por el secretario y atribuirles
+  // dependencia/cargo en lugar de tirarlos como menciones sueltas.
+  const affiliatesBlock = await getAffiliatesContextBlock();
+  if (affiliatesBlock) {
+    systemBlocks.push({ text: affiliatesBlock, cache: true });
+  }
 
   const result = await callAI({
     purpose: 'extract',

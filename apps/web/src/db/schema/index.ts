@@ -10,5 +10,6 @@ export * from './ai';
 export * from './publications';
 export * from './auth';
 export * from './access-tokens';
+export * from './affiliates';
 export * from './audit';
 export * from './settings';
