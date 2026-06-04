@@ -1,5 +1,9 @@
 'use client';
 
+// Componente de navegación lateral (sidebar) del panel.
+// Muestra los ítems de menú filtrados según el rol del usuario:
+// los secretarios ven menos opciones que el administrador de prensa.
+// En mobile funciona como un drawer (panel que aparece desde la izquierda).
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -7,7 +11,7 @@ import { useEffect } from 'react';
 import {
   LayoutDashboard, FileText, CalendarOff, LogOut, Settings,
   Users, BarChart2, TrendingUp, ShieldCheck, Activity,
-  MessageSquare, BookOpen, X,
+  MessageSquare, BookOpen, X, Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +31,8 @@ const navItems: NavItem[] = [
   { label: 'Revisión',           href: '/revision',                   icon: FileText,       roles: ['press_admin'] },
   { label: 'Cumplimiento',       href: '/ejecutivo/cumplimiento',     icon: BarChart2,      roles: ['executive', 'press_admin'] },
   { label: 'Estadísticas',       href: '/ejecutivo/estadisticas',     icon: TrendingUp,     roles: ['executive', 'press_admin'] },
-  { label: 'Usuarios',           href: '/admin/usuarios',             icon: Users,          roles: ['press_admin'],  dividerBefore: true },
+  { label: 'Mensajes (live)',    href: '/admin/mensajes',             icon: Inbox,          roles: ['press_admin'],  dividerBefore: true },
+  { label: 'Usuarios',           href: '/admin/usuarios',             icon: Users,          roles: ['press_admin'] },
   { label: 'Ausencias (Admin)',  href: '/admin/ausencias',            icon: ShieldCheck,    roles: ['press_admin'] },
   { label: 'Prompts IA',         href: '/admin/prompts',              icon: MessageSquare,  roles: ['press_admin'] },
   { label: 'Glosario IA',        href: '/admin/glosario',             icon: BookOpen,       roles: ['press_admin'] },
@@ -44,13 +49,16 @@ interface Props {
 }
 
 export function SidebarNav({ role, fullName, open = false, onClose }: Props) {
+  // Ruta actual para marcar el ítem activo con resaltado
   const pathname = usePathname();
 
+  // Filtrar ítems según el rol: si un ítem tiene roles definidos, solo se muestra a esos roles
   const visible = navItems.filter(
     (item) => !item.roles || item.roles.includes(role),
   );
 
-  // Bloquea el scroll del body mientras el drawer mobile esté abierto.
+  // Bloquea el scroll del body mientras el drawer mobile esté abierto
+  // para evitar que el fondo se mueva mientras el menú está visible
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const original = document.body.style.overflow;
