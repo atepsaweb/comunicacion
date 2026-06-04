@@ -1,10 +1,18 @@
+// Endpoint para crear el ciclo semanal si no existe todavía.
+// n8n llama a este endpoint al comienzo de cada semana para asegurarse
+// de que haya un ciclo creado. Si ya existe para esa semana, no hace nada.
+// Los horarios están calculados en hora argentina (ART = UTC-3):
+//   - Apertura: el ciclo cubre de lunes a domingo
+//   - Trigger: jueves 10:00 ART (se envía el mensaje inicial a los secretarios)
+//   - Recordatorio: viernes 12:00 ART (a los que no reportaron)
+//   - Cierre: sábado 10:00 ART (deja de aceptar mensajes)
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
 
-// ART = UTC-3
+// Diferencia en milisegundos entre UTC y hora argentina (ART = UTC-3)
 const ART_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 function getISOWeekAndYear(date: Date): { year: number; isoWeek: number } {
@@ -70,10 +78,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   reminderAt.setUTCDate(mondayUTC.getUTCDate() + 4);
   reminderAt.setUTCHours(15, 0, 0, 0);
 
-  // closes_at = Friday 18:00 ART = Friday 21:00 UTC
+  // closes_at = Saturday 10:00 ART = Saturday 13:00 UTC
   const closesAt = new Date(mondayUTC);
-  closesAt.setUTCDate(mondayUTC.getUTCDate() + 4);
-  closesAt.setUTCHours(21, 0, 0, 0);
+  closesAt.setUTCDate(mondayUTC.getUTCDate() + 5);
+  closesAt.setUTCHours(13, 0, 0, 0);
 
   const [cycle] = await db
     .insert(schema.weeklyCycles)
