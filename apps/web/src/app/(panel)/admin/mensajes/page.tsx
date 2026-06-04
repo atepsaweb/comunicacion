@@ -4,7 +4,7 @@
 // auto-refresh cada 10s.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, isNull, notInArray, or } from 'drizzle-orm';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
@@ -49,6 +49,19 @@ export default async function AdminMensajesPage() {
     .leftJoin(
       schema.documentExtractions,
       eq(schema.documentExtractions.inbound_message_id, schema.inboundMessages.id),
+    )
+    // Excluir los mensajes que el usuario o el admin eliminaron explicitamente
+    // desde el panel: son borrados intencionales y no deben aparecer ni con el
+    // toggle "Mostrar descartados". Los otros tipos de descarte (numero no
+    // registrado, duplicados, mensajes internos) si pueden mostrarse.
+    .where(
+      or(
+        isNull(schema.inboundMessages.discard_reason),
+        notInArray(schema.inboundMessages.discard_reason, [
+          'deleted_by_user',
+          'deleted_by_admin',
+        ]),
+      ),
     )
     .orderBy(desc(schema.inboundMessages.received_at))
     .limit(100);
