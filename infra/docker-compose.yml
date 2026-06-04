@@ -20,29 +20,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ─── WhatsApp bot (WAHA — whatsapp-web.js + Chromium, no Baileys) ────────────
-  # WAHA usa Chromium real para conectar a WhatsApp Web → mucho menos
-  # detectable que Baileys (que reimplementa el protocolo de cero).
-  # Engine WEBJS = whatsapp-web.js; NOWEB sería como Baileys (evitar).
-  wppconnect:
-    image: devlikeapro/waha:latest
-    container_name: atepsa-rep-wppconnect
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:8081:3000"
-    volumes:
-      - wppconnect-sessions:/app/.sessions
-    environment:
-      WHATSAPP_DEFAULT_ENGINE: WEBJS
-      WHATSAPP_API_KEY: ${WPPCONNECT_SECRET_KEY}
-      WHATSAPP_HOOK_URL: https://n8n.atepsa.org.ar/webhook/whatsapp-inbound
-      WHATSAPP_HOOK_EVENTS: message,session.status
-      WHATSAPP_DOWNLOAD_MEDIA: "true"
-      WAHA_LOG_LEVEL: error
-      TZ: America/Argentina/Buenos_Aires
-    networks:
-      - atepsa-rep
-
   # ─── Orquestador de workflows ─────────────────────────────────────────────────
   n8n:
     image: n8nio/n8n:1.93.0
@@ -89,8 +66,6 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      WAHA_URL: http://wppconnect:3000
-      WAHA_SESSION: default
       TZ: America/Argentina/Buenos_Aires
     volumes:
       - audio-data:/data/audio
@@ -127,7 +102,6 @@ services:
 
 volumes:
   postgres-data:
-  wppconnect-sessions:
   n8n-data:
   audio-data:
   documents-data:

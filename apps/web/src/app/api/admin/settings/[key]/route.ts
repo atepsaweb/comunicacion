@@ -8,7 +8,6 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { clearWhatsAppProviderCache } from '@/lib/whatsapp';
 
 export async function PATCH(
   req: NextRequest,
@@ -42,8 +41,6 @@ export async function PATCH(
         updated_at: sql`now()`,
       },
     });
-
-  if (key === 'whatsapp_provider') clearWhatsAppProviderCache();
 
   return NextResponse.json({ ok: true });
 }

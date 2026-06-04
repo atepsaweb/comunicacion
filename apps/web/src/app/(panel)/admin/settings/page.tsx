@@ -32,10 +32,9 @@ const DEFAULT_SETTINGS: Array<{ key: string; value: unknown }> = [
   // preguntas sobre los nuevos mensajes.
   { key: 'max_followup_per_burst', value: 2 },
   { key: 'cycle_timezone', value: 'America/Argentina/Buenos_Aires' },
-  // Proveedor de WhatsApp activo. 'waha' usa WAHA self-hosted (whatsapp-web.js),
-  // 'meta' usa la Cloud API oficial. Cambiar a 'meta' sólo cuando los templates
-  // estén aprobados y el webhook esté configurado en Meta Business Manager.
-  { key: 'whatsapp_provider', value: 'waha' },
+  // Proveedor de WhatsApp activo. Hoy sólo se usa 'meta' (Cloud API oficial).
+  // El valor queda como setting por compatibilidad y para auditoría.
+  { key: 'whatsapp_provider', value: 'meta' },
   // Mapa de keys lógicas → templates aprobados en Meta. Las keys las usa el
   // código (otp_login, weekly_kickoff, etc.); los names tienen que coincidir
   // exactamente con los aprobados en Business Manager.

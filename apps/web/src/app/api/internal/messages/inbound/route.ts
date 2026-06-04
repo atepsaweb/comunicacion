@@ -1,15 +1,15 @@
-// Endpoint que recibe los mensajes entrantes de WhatsApp desde WAHA via webhook.
-// Este es el punto de entrada principal del sistema: cada vez que un secretario
-// envía un mensaje al número de WhatsApp de ATEPSA, WAHA llama a este endpoint.
-// El endpoint guarda el mensaje en la base de datos, descarga el archivo si corresponde
-// (audio, imagen, documento), y devuelve flags para que n8n sepa cómo procesarlo.
-// Solo puede ser llamado por n8n (requiere el INTERNAL_API_SECRET).
+// Endpoint que recibe los mensajes entrantes de WhatsApp normalizados por
+// `/api/webhooks/meta` y reenviados por n8n.
+// Es el punto de entrada principal del sistema: cada vez que un secretario
+// envía un mensaje al número de WhatsApp de ATEPSA, este endpoint guarda el
+// mensaje, descarga el archivo si corresponde (audio, imagen, documento) y
+// devuelve flags para que n8n sepa cómo procesarlo.
+// Solo puede ser llamado internamente (requiere INTERNAL_API_SECRET).
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, or, desc } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
-import { downloadWahaMedia, resolveWahaPhone } from '@/lib/waha-media';
 import { downloadMetaMedia } from '@/lib/meta-cloud';
 import { logger } from '@/lib/logger';
 
@@ -30,13 +30,11 @@ const IMAGE_MIME_TYPES = new Set([
   'image/gif',
 ]);
 
-// Payload que WAHA envía al webhook (subset relevante).
-// El webhook de Meta normaliza al mismo formato, agregando `provider: 'meta'`
-// y `payload.media.mediaId` (en lugar de `media.url`).
-type WahaWebhookPayload = {
+// Payload normalizado que entrega el webhook de Meta tras reenviarlo n8n.
+// Compatible con la estructura WAHA-like que ya consumían los workflows.
+type InboundEnvelope = {
   event?: string;
-  session?: string;
-  provider?: 'waha' | 'meta';
+  provider?: 'meta';
   payload?: {
     id: string;
     timestamp: number;
@@ -45,23 +43,18 @@ type WahaWebhookPayload = {
     to?: string;
     body?: string | null;
     hasMedia?: boolean;
-    mediaUrl?: string | null;
     type?: string | null;
-    // WEBJS puede omitir `type` en el nivel superior; el tipo real está en _data
     _data?: { type?: string | null };
-    // WAHA: { url, mimetype }; Meta: { mediaId, mimetype }
     media?: {
-      url?: string;
       mediaId?: string;
       mimetype?: string;
       filename?: string | null;
     } | null;
-    // Threading: mensaje que el secretario está citando
     quotedMsg?: { id?: string; body?: string } | null;
   };
 };
 
-/** Convierte "5491112345678@c.us" o "5491112345678" → "+5491112345678" */
+/** Convierte "5491112345678" (E.164 sin +) → "+5491112345678" */
 function normalizeE164(waPhone: string): string {
   return `+${waPhone.split('@')[0]}`;
 }
@@ -92,39 +85,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = (await req.json()) as WahaWebhookPayload;
+  const body = (await req.json()) as InboundEnvelope;
   const { event, payload } = body;
-  const provider = body.provider === 'meta' ? 'meta' : 'waha';
+  const provider = 'meta' as const;
 
   if (!payload || payload.fromMe) {
     return NextResponse.json({ discarded: true, reason: 'not_inbound_message' });
   }
-  // Solo procesar event "message" (inbound); "message.any" duplica por incluir enviados y recibidos
   if (event !== 'message') {
     return NextResponse.json({ discarded: true, reason: 'non_message_event' });
   }
 
-  // Descartar mensajes internos de WhatsApp (notificaciones de sistema, cifrado, etc.)
-  // Estos llegan con event="message" pero no son mensajes de usuario y rompen el pipeline de IA.
-  const INTERNAL_WA_TYPES = new Set([
-    'e2e_notification',   // notificación de cifrado E2E (muy común al reconectar)
-    'notification_template',
-    'call_log',
-    'gp2',                // group participant changes
-    'revoked',            // mensaje eliminado
-    'ciphertext',         // cifrado pendiente de procesar
-  ]);
-  const rawType = payload.type ?? payload._data?.type ?? undefined;
-  if (rawType && INTERNAL_WA_TYPES.has(rawType)) {
-    return NextResponse.json({ discarded: true, reason: 'internal_wa_message', waType: rawType });
-  }
-
-  // WhatsApp multi-device (solo WAHA) puede enviar from como LID (@lid)
-  let fromPhone = normalizeE164(payload.from);
-  if (provider === 'waha' && payload.from.endsWith('@lid')) {
-    const resolved = await resolveWahaPhone(payload.from);
-    if (resolved) fromPhone = resolved;
-  }
+  const fromPhone = normalizeE164(payload.from);
 
   const receivedAt = new Date(payload.timestamp * 1000);
   const kind = resolveKind(payload.type ?? payload._data?.type ?? undefined, payload.hasMedia);
@@ -188,14 +160,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let documentPath: string | null = null;
 
   const downloadByProvider = async (destPath: string): Promise<void> => {
-    const p = payload;
-    if (provider === 'meta') {
-      const mediaId = p.media?.mediaId;
-      if (!mediaId) throw new Error('meta payload missing media.mediaId');
-      await downloadMetaMedia(mediaId, destPath);
-    } else {
-      await downloadWahaMedia(p.id, destPath, p.media?.url ?? undefined);
-    }
+    const mediaId = payload.media?.mediaId;
+    if (!mediaId) throw new Error('meta payload missing media.mediaId');
+    await downloadMetaMedia(mediaId, destPath);
   };
 
   // Descargar audio
