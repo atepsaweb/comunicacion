@@ -9,7 +9,7 @@
 //   —  Próxima         → ciclo pending, todavía no empezó
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
-import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
@@ -44,11 +44,11 @@ export default async function CumplimientoPage() {
     limit: 3,
   });
 
-  // Secretarios y ejecutivos activos ordenados por nombre
+  // Todos los usuarios activos que reportan (secretary + executive + press_admin)
   const activeUsers = await db.query.users.findMany({
     where: and(
       eq(schema.users.is_active, true),
-      inArray(schema.users.role, ['secretary', 'executive']),
+      inArray(schema.users.role, ['secretary', 'executive', 'press_admin']),
     ),
     columns: { id: true, full_name: true },
     orderBy: [schema.users.full_name],
@@ -70,6 +70,7 @@ export default async function CumplimientoPage() {
               'report_followup_reply',
               'weekly_pause',
             ] as ('report' | 'report_followup_reply' | 'weekly_pause')[]),
+            isNull(schema.inboundMessages.discarded_at),
           ),
           columns: { user_id: true, cycle_id: true, intent: true },
         })
