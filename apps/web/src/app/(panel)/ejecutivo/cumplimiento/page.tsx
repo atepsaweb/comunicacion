@@ -92,8 +92,9 @@ export default async function CumplimientoPage() {
 
   // Ausencias para licencias
   const cycleRanges = cycles.map(c => ({ id: c.id, ...getCycleDateRange(c.starts_at) }));
-  const minDate = cycleRanges[cycleRanges.length - 1]?.startDate ?? '';
-  const maxDate = cycleRanges[0]?.endDate ?? '';
+  // cycles está en orden ASC (S21 → S23), así que [0] es el más viejo y [last] el más reciente
+  const minDate = cycleRanges[0]?.startDate ?? '';
+  const maxDate = cycleRanges[cycleRanges.length - 1]?.endDate ?? '';
 
   const absences =
     minDate && maxDate && userIds.length > 0
