@@ -1,14 +1,13 @@
 // Cliente de la API de WhatsApp Business Cloud (Meta).
 // Documentación: https://developers.facebook.com/docs/whatsapp/cloud-api/
 //
-// La Cloud API exige:
-//   - Token de acceso permanente del sistema o del usuario (META_ACCESS_TOKEN).
+// Requiere:
+//   - Token de acceso permanente del sistema (META_ACCESS_TOKEN).
 //   - Phone Number ID del número que envía (META_PHONE_NUMBER_ID).
-//   - Para mensajes proactivos (fuera de la ventana de 24h del usuario) hay que
-//     usar templates previamente aprobados por Meta.
+//   - Para mensajes proactivos (fuera de la ventana de 24h) usar templates aprobados por Meta.
 //
-// Diferencias importantes con WAHA:
-//   - No soporta envío a grupos.
+// Notas:
+//   - No soporta envío a grupos de WhatsApp.
 //   - Los archivos multimedia se entregan como media IDs: hay que pedir la URL
 //     firmada con un GET previo y después descargar el binario con auth.
 //   - Texto libre solo funciona dentro de la ventana de 24h desde el último

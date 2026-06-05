@@ -8,9 +8,9 @@
 // El handler:
 //   - GET: responde el `hub.challenge` cuando Meta verifica la suscripción.
 //   - POST: valida la firma `X-Hub-Signature-256` (HMAC SHA256 con
-//     META_APP_SECRET), normaliza el payload al formato que ya consume el
-//     endpoint interno `/api/internal/messages/inbound` (compatible con WAHA),
-//     y lo reenvía al webhook de n8n para mantener el routing existente
+//     META_APP_SECRET), normaliza el payload al formato que consume el
+//     endpoint interno `/api/internal/messages/inbound` y lo reenvía
+//     al webhook de n8n para el routing existente
 //     (transcripción, extracción de docs, clasificación de intent, etc.).
 //
 // Devuelve 200 a Meta lo antes posible: Meta marca el webhook como caído si
@@ -164,9 +164,8 @@ function extractMedia(msg: MetaMessage): {
 
 /**
  * Convierte un MetaMessage al envelope que consume `/api/internal/messages/inbound`.
- * El envelope mantiene compatibilidad con el formato WAHA pero agrega
- * `provider: 'meta'` y `payload.media.mediaId` para que el endpoint sepa
- * cómo descargar la media.
+ * Convierte un MetaMessage al envelope que consume `/api/internal/messages/inbound`.
+ * Incluye `provider: 'meta'` y `payload.media.mediaId` para la descarga de archivos.
  */
 function buildInboundEnvelope(msg: MetaMessage): Record<string, unknown> {
   const m = extractMedia(msg);

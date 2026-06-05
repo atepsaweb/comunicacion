@@ -31,7 +31,6 @@ const IMAGE_MIME_TYPES = new Set([
 ]);
 
 // Payload normalizado que entrega el webhook de Meta tras reenviarlo n8n.
-// Compatible con la estructura WAHA-like que ya consumían los workflows.
 type InboundEnvelope = {
   event?: string;
   provider?: 'meta';
@@ -106,7 +105,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const quotedWamid = payload.quotedMsg?.id ?? null;
   const quotedBody = payload.quotedMsg?.body?.slice(0, 500) ?? null;
 
-  // Idempotencia: WAHA puede reintentar el webhook si n8n tarda en responder
+  // Idempotencia: Meta puede reintentar el webhook si n8n tarda en responder
   const existingMsg = await db.query.inboundMessages.findFirst({
     where: eq(schema.inboundMessages.provider_message_id, payload.id),
     columns: { id: true },

@@ -1,7 +1,6 @@
 // Endpoint genérico para que n8n (u otros consumidores internos) envíen
 // mensajes de WhatsApp pasando por el dispatcher del panel.
-// Evita que cada workflow hable directo con WAHA o Meta: así el switch de
-// proveedor se hace en un solo lugar (system_settings.whatsapp_provider).
+// Toda la lógica de envío está centralizada en /lib/whatsapp.ts (Meta Cloud API).
 //
 // Body:
 //   {

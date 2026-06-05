@@ -1,6 +1,5 @@
-// Cliente único de WhatsApp: Meta Cloud API.
-// Reemplazó al proveedor WAHA (whatsapp-web.js) que dejó de usarse al
-// migrar al canal oficial. Las funciones expuestas:
+// Cliente único de WhatsApp: Meta Cloud API (canal oficial).
+// Las funciones expuestas:
 //   - sendWhatsAppText(phone, text): texto libre. Sólo válido dentro de la
 //     ventana de 24h del usuario (ack, follow-up replies, confirmaciones).
 //   - sendWhatsAppTemplate(phone, templateKey, vars, fallbackText): envío

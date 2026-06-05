@@ -9,7 +9,7 @@ import { messageKindEnum, messageIntentEnum, outboundPurposeEnum, deliveryStatus
 // Mensajes que llegan al sistema desde WhatsApp (enviados por los secretarios)
 export const inboundMessages = appSchema.table('inbound_messages', {
   id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
-  // Proveedor de WhatsApp que recibió el mensaje (ej: 'waha')
+  // Proveedor de WhatsApp que recibió el mensaje (ej: 'meta')
   provider: text('provider').notNull(),
   // ID del mensaje asignado por el proveedor (para evitar duplicados y hacer seguimiento)
   provider_message_id: text('provider_message_id').notNull(),
@@ -37,7 +37,7 @@ export const inboundMessages = appSchema.table('inbound_messages', {
   quoted_wamid: text('quoted_wamid'),
   // Texto del mensaje citado (para entender el contexto de la respuesta)
   quoted_body: text('quoted_body'),
-  // Payload completo tal como llegó del webhook de WAHA (para debug)
+  // Payload completo tal como llegó del webhook (para debug)
   raw_payload: jsonb('raw_payload').notNull(),
   // Intención detectada por la IA en este mensaje
   intent: messageIntentEnum('intent'),
@@ -68,7 +68,7 @@ export const transcriptions = appSchema.table('transcriptions', {
 export const outboundMessages = appSchema.table('outbound_messages', {
   id: uuid('id').primaryKey().$defaultFn(() => uuidv7()),
   provider: text('provider').notNull(),
-  // ID asignado por WAHA al mensaje enviado (null si hubo error antes de enviarlo)
+  // ID asignado por Meta al mensaje enviado (null si hubo error antes de enviarlo)
   provider_message_id: text('provider_message_id'),
   // Número de teléfono del destinatario en formato E.164
   to_phone_e164: text('to_phone_e164').notNull(),
