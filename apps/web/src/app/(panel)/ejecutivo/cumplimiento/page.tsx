@@ -1,8 +1,12 @@
-// Página de cumplimiento: matriz de participación de todos los secretarios en las últimas semanas.
+// Página de cumplimiento: quién participó en las últimas 3 semanas.
 // Solo visible para roles executive y press_admin.
-// Muestra una tabla donde cada fila es un secretario y cada columna es una semana.
-// Cada celda indica si reportó, tomó pausa, estaba de licencia o no reportó.
-// También permite descargar la matriz en formato Excel.
+//
+// Lógica de estado por celda (basada en mensajes recibidos, no en el pipeline de extracción):
+//   🟢 Reportó         → mandó al menos un mensaje con intent=report/report_followup_reply
+//   🟡 Esta semana paso → mandó "esta semana paso" (intent=weekly_pause), sin mensajes de report
+//   ⬜ Licencia        → tiene ausencia registrada que cubre ese ciclo
+//   🔴 Sin reporte     → no mandó nada relevante
+//   —  Próxima         → ciclo pending, todavía no empezó
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
@@ -11,20 +15,14 @@ import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { DownloadXlsxButton } from './download-button';
 
-type CellStatus = 'reported' | 'paused' | 'on_leave' | 'no_report';
+type CellStatus = 'reported' | 'paused' | 'on_leave' | 'no_report' | 'pending';
 
-const CELL_STYLES: Record<CellStatus, string> = {
-  reported: 'bg-green-600 text-white',
-  paused: 'bg-yellow-600 text-white',
-  on_leave: 'bg-zinc-400 text-white',
-  no_report: 'bg-red-600 text-white',
-};
-
-const CELL_LABELS: Record<CellStatus, string> = {
-  reported: 'Sí',
-  paused: 'Pausa',
-  on_leave: 'Lic.',
-  no_report: '—',
+const CELL_CONFIG: Record<CellStatus, { bg: string; text: string; label: string; tooltip: string }> = {
+  reported:  { bg: 'bg-green-600',  text: 'text-white',    label: 'Sí',    tooltip: 'Reportó'           },
+  paused:    { bg: 'bg-yellow-500', text: 'text-white',    label: 'Paso',  tooltip: 'Esta semana paso'  },
+  on_leave:  { bg: 'bg-zinc-400',   text: 'text-white',    label: 'Lic.',  tooltip: 'Licencia'          },
+  no_report: { bg: 'bg-red-600',    text: 'text-white',    label: '—',     tooltip: 'Sin reporte'       },
+  pending:   { bg: 'bg-zinc-100',   text: 'text-zinc-400', label: '·',     tooltip: 'Ciclo no iniciado' },
 };
 
 function getCycleDateRange(startsAt: Date): { startDate: string; endDate: string } {
@@ -34,45 +32,20 @@ function getCycleDateRange(startsAt: Date): { startDate: string; endDate: string
   return { startDate, endDate: endDt.toISOString().split('T')[0]! };
 }
 
-// Determina el estado de una celda de la matriz para un secretario en un ciclo dado.
-// Primero verifica si hay reporte; si no lo hay, verifica si estaba de licencia en ese período.
-function resolveCellStatus(
-  userId: string,
-  cycleId: string,
-  cycleStart: string,
-  cycleEnd: string,
-  reportMap: Map<string, string>,
-  absences: Array<{ user_id: string; starts_on: string; ends_on: string }>,
-): CellStatus {
-  const status = reportMap.get(`${userId}:${cycleId}`);
-  if (!status) {
-    // Si no hay reporte, verificar si tenía ausencia registrada que cubra ese período
-    const onLeave = absences.some(
-      a => a.user_id === userId && a.starts_on <= cycleEnd && a.ends_on >= cycleStart,
-    );
-    return onLeave ? 'on_leave' : 'no_report';
-  }
-  if (status === 'on_leave') return 'on_leave';
-  if (status === 'paused') return 'paused';
-  if (status === 'no_report') return 'no_report';
-  return 'reported';
-}
-
 export default async function CumplimientoPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect('/login');
   if (session.user.role !== 'press_admin' && session.user.role !== 'executive') notFound();
 
-  // Últimos 12 ciclos (incluye el abierto actual para mostrar participación en tiempo real)
+  // Últimas 3 semanas — incluye pending para mostrar la próxima
   const cycles = await db.query.weeklyCycles.findMany({
-    where: inArray(schema.weeklyCycles.status, ['open', 'closed', 'processed', 'published']),
-    columns: { id: true, iso_week: true, year: true, starts_at: true, status: true },
+    columns: { id: true, iso_week: true, year: true, status: true, starts_at: true },
     orderBy: [desc(schema.weeklyCycles.starts_at)],
-    limit: 12,
+    limit: 3,
   });
 
-  // Usuarios activos (secretary/executive) ordenados por nombre
-  const users = await db.query.users.findMany({
+  // Secretarios y ejecutivos activos ordenados por nombre
+  const activeUsers = await db.query.users.findMany({
     where: and(
       eq(schema.users.is_active, true),
       inArray(schema.users.role, ['secretary', 'executive']),
@@ -81,26 +54,40 @@ export default async function CumplimientoPage() {
     orderBy: [schema.users.full_name],
   });
 
-  const cycleIds = cycles.map(c => c.id);
-  const userIds = users.map(u => u.id);
+  const userIds = activeUsers.map(u => u.id);
+  const nonPendingCycles = cycles.filter(c => c.status !== 'pending');
+  const nonPendingIds = nonPendingCycles.map(c => c.id);
 
-  const reports =
-    cycleIds.length > 0 && userIds.length > 0
-      ? await db.query.reports.findMany({
+  // Mensajes relevantes: solo intent=report/followup/pause, no descartados
+  const relevantMessages =
+    nonPendingIds.length > 0 && userIds.length > 0
+      ? await db.query.inboundMessages.findMany({
           where: and(
-            inArray(schema.reports.cycle_id, cycleIds),
-            inArray(schema.reports.user_id, userIds),
+            inArray(schema.inboundMessages.cycle_id, nonPendingIds),
+            inArray(schema.inboundMessages.user_id, userIds),
+            inArray(schema.inboundMessages.intent, [
+              'report',
+              'report_followup_reply',
+              'weekly_pause',
+            ] as ('report' | 'report_followup_reply' | 'weekly_pause')[]),
           ),
-          columns: { user_id: true, cycle_id: true, status: true },
+          columns: { user_id: true, cycle_id: true, intent: true },
         })
       : [];
 
-  const reportMap = new Map<string, string>();
-  for (const r of reports) {
-    reportMap.set(`${r.user_id}:${r.cycle_id}`, r.status);
+  // Índice: "userId:cycleId" → { hasReport, hasPause }
+  const msgIndex = new Map<string, { hasReport: boolean; hasPause: boolean }>();
+  for (const m of relevantMessages) {
+    if (!m.user_id || !m.cycle_id || !m.intent) continue;
+    const key = `${m.user_id}:${m.cycle_id}`;
+    const prev = msgIndex.get(key) ?? { hasReport: false, hasPause: false };
+    if (m.intent === 'report' || m.intent === 'report_followup_reply') prev.hasReport = true;
+    else if (m.intent === 'weekly_pause') prev.hasPause = true;
+    msgIndex.set(key, prev);
   }
 
-  const cycleRanges = cycles.map(c => ({ id: c.id, ...getCycleDateRange(c.starts_at) }));
+  // Ausencias para licencias
+  const cycleRanges = nonPendingCycles.map(c => ({ id: c.id, ...getCycleDateRange(c.starts_at) }));
   const minDate = cycleRanges[cycleRanges.length - 1]?.startDate ?? '';
   const maxDate = cycleRanges[0]?.endDate ?? '';
 
@@ -116,141 +103,173 @@ export default async function CumplimientoPage() {
         })
       : [];
 
-  if (cycles.length === 0) {
-    return (
-      <div className="max-w-5xl space-y-6">
-        <h1 className="text-2xl font-bold text-zinc-900">Cumplimiento</h1>
-        <p className="text-zinc-500 text-sm">No hay ciclos cerrados aún.</p>
-      </div>
+  function resolveCellStatus(userId: string, cycle: (typeof cycles)[0]): CellStatus {
+    if (cycle.status === 'pending') return 'pending';
+
+    const { startDate, endDate } = getCycleDateRange(cycle.starts_at);
+    const onLeave = absences.some(
+      a => a.user_id === userId && a.starts_on <= endDate && a.ends_on >= startDate,
     );
+    if (onLeave) return 'on_leave';
+
+    const summary = msgIndex.get(`${userId}:${cycle.id}`);
+    if (!summary) return 'no_report';
+    if (summary.hasReport) return 'reported';
+    if (summary.hasPause) return 'paused';
+    return 'no_report';
   }
 
-  // Calcular totales por ciclo
-  const cycleTotals = cycleRanges.map(cr => {
-    let reported = 0;
-    for (const u of users) {
-      const s = resolveCellStatus(u.id, cr.id, cr.startDate, cr.endDate, reportMap, absences);
+  // Estadísticas por ciclo
+  const cycleStats = cycles.map(cycle => {
+    let reported = 0, paused = 0, onLeave = 0, noReport = 0;
+    for (const u of activeUsers) {
+      const s = resolveCellStatus(u.id, cycle);
       if (s === 'reported') reported++;
+      else if (s === 'paused') paused++;
+      else if (s === 'on_leave') onLeave++;
+      else if (s === 'no_report') noReport++;
     }
-    return { reported, total: users.length };
+    return { reported, paused, onLeave, noReport };
   });
 
+  // Ciclo abierto actual y quiénes no reportaron
+  const openCycle = cycles.find(c => c.status === 'open');
+  const sinReporte = openCycle
+    ? activeUsers.filter(u => resolveCellStatus(u.id, openCycle) === 'no_report')
+    : [];
+
   return (
-    <div className="max-w-full space-y-6">
+    <div className="max-w-full space-y-5">
+
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Cumplimiento</h1>
-          <p className="text-zinc-500 mt-1 text-sm">Matriz de reporte — últimas {cycles.length} semanas.</p>
+          <p className="text-zinc-500 mt-1 text-sm">
+            Participación semanal — últimas {cycles.length} semanas.
+          </p>
         </div>
         <DownloadXlsxButton />
       </div>
 
-      {/* Leyenda */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-zinc-600">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm bg-green-600" />Reportó
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm bg-yellow-600" />Pausa
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm bg-zinc-400" />Licencia
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded-sm bg-red-600" />Sin reporte
-        </span>
-      </div>
-
-      {/* Mobile: una card por secretario con sus últimas semanas */}
-      <div className="md:hidden space-y-2">
-        {users.map(u => (
-          <div key={u.id} className="rounded-lg border border-zinc-200 bg-white p-3">
-            <p className="text-sm font-medium text-zinc-800 mb-2">{u.full_name}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {cycleRanges.map(cr => {
-                const status = resolveCellStatus(u.id, cr.id, cr.startDate, cr.endDate, reportMap, absences);
-                const cycle = cycles.find(c => c.id === cr.id)!;
-                return (
-                  <span
-                    key={cr.id}
-                    className={`inline-flex items-center justify-center px-2 h-6 rounded text-xs font-medium ${CELL_STYLES[status]}`}
-                    title={`Semana ${cycle.iso_week} — ${CELL_LABELS[status]}`}
-                  >
-                    S{cycle.iso_week}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-
-        {/* Totales mobile */}
-        <div className="rounded-lg border-2 border-zinc-300 bg-zinc-100 p-3">
-          <p className="text-sm font-semibold text-zinc-700 mb-2">Totales por semana</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-700">
-            {cycles.map((c, i) => (
-              <span key={c.id} className="tabular-nums">
-                S{c.iso_week}: {cycleTotals[i]!.reported}/{cycleTotals[i]!.total}
-              </span>
-            ))}
-          </div>
+      {/* Alerta: sin reporte en ciclo abierto */}
+      {sinReporte.length > 0 && openCycle && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-semibold text-red-800 mb-1">
+            Sin reporte en S{openCycle.iso_week} — {sinReporte.length} secretario{sinReporte.length !== 1 ? 's' : ''}:
+          </p>
+          <p className="text-sm text-red-700 leading-relaxed">
+            {sinReporte.map(u => u.full_name.split(/\s+/)[0]).join(' · ')}
+          </p>
         </div>
+      )}
+
+      {/* Leyenda */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-zinc-600">
+        {([
+          ['reported',  'bg-green-600',  'Reportó'],
+          ['paused',    'bg-yellow-500', 'Esta semana paso'],
+          ['on_leave',  'bg-zinc-400',   'Licencia'],
+          ['no_report', 'bg-red-600',    'Sin reporte'],
+        ] as [string, string, string][]).map(([, bg, label]) => (
+          <span key={label} className="flex items-center gap-1.5">
+            <span className={`inline-block w-3 h-3 rounded-sm ${bg}`} />
+            {label}
+          </span>
+        ))}
       </div>
 
-      {/* Desktop: tabla */}
-      <div className="hidden md:block overflow-x-auto rounded-lg border border-zinc-200 bg-white">
+      {/* Tabla */}
+      <div className="overflow-x-auto rounded-lg border border-zinc-200 bg-white">
         <table className="text-sm w-full border-collapse">
           <thead>
-            <tr className="bg-zinc-50 border-b border-zinc-200">
+            <tr className="border-b border-zinc-200 bg-zinc-50">
               <th className="text-left px-4 py-3 font-medium text-zinc-700 min-w-[180px] sticky left-0 bg-zinc-50 z-10">
                 Secretario/a
               </th>
-              {cycles.map(c => (
-                <th
-                  key={c.id}
-                  className="px-3 py-3 font-medium text-zinc-700 text-center min-w-[56px]"
-                >
-                  S{c.iso_week}
-                </th>
-              ))}
+              {cycles.map((c, i) => {
+                const isOpen = c.status === 'open';
+                const isPending = c.status === 'pending';
+                const stats = cycleStats[i]!;
+                return (
+                  <th key={c.id} className="px-3 py-2 text-center min-w-[100px]">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className={`font-bold text-sm ${isOpen ? 'text-blue-700' : 'text-zinc-700'}`}>
+                          S{c.iso_week}
+                        </span>
+                        {isOpen && (
+                          <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-blue-100 text-blue-700">
+                            actual
+                          </span>
+                        )}
+                        {isPending && (
+                          <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-zinc-200 text-zinc-500">
+                            próxima
+                          </span>
+                        )}
+                      </div>
+                      {!isPending && (
+                        <div className="text-[10px] font-normal text-zinc-400">
+                          {stats.reported}/{activeUsers.length} reportaron
+                        </div>
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
-            {users.map((u, uIdx) => (
-              <tr
-                key={u.id}
-                className={uIdx % 2 === 0 ? 'bg-white' : 'bg-zinc-50'}
-              >
-                <td className={`px-4 py-2.5 text-zinc-800 font-medium sticky left-0 z-10 ${uIdx % 2 === 0 ? 'bg-white' : 'bg-zinc-50'}`}>
-                  {u.full_name}
-                </td>
-                {cycleRanges.map(cr => {
-                  const status = resolveCellStatus(u.id, cr.id, cr.startDate, cr.endDate, reportMap, absences);
-                  return (
-                    <td key={cr.id} className="px-3 py-2.5 text-center">
-                      <span
-                        className={`inline-flex items-center justify-center w-10 h-6 rounded text-xs font-medium ${CELL_STYLES[status]}`}
-                      >
-                        {CELL_LABELS[status]}
-                      </span>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {activeUsers.map((u, uIdx) => {
+              const rowBg = uIdx % 2 === 0 ? 'bg-white' : 'bg-zinc-50/50';
+              return (
+                <tr key={u.id} className={`border-b border-zinc-100 last:border-0 ${rowBg}`}>
+                  <td className={`px-4 py-2 text-zinc-800 text-sm font-medium sticky left-0 z-10 ${rowBg}`}>
+                    {u.full_name}
+                  </td>
+                  {cycles.map(c => {
+                    const status = resolveCellStatus(u.id, c);
+                    const cfg = CELL_CONFIG[status];
+                    return (
+                      <td key={c.id} className="px-3 py-2 text-center">
+                        <span
+                          className={`inline-flex items-center justify-center w-14 h-7 rounded text-xs font-semibold ${cfg.bg} ${cfg.text}`}
+                          title={cfg.tooltip}
+                        >
+                          {cfg.label}
+                        </span>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
 
             {/* Fila de totales */}
-            <tr className="border-t-2 border-zinc-300 bg-zinc-100 font-semibold">
-              <td className="px-4 py-2.5 text-zinc-700 sticky left-0 bg-zinc-100 z-10">Totales</td>
-              {cycleTotals.map((t, i) => (
-                <td key={i} className="px-3 py-2.5 text-center text-zinc-700 text-xs">
-                  {t.reported}/{t.total}
+            <tr className="border-t-2 border-zinc-200 bg-zinc-100 font-semibold">
+              <td className="px-4 py-2.5 text-zinc-700 text-sm sticky left-0 bg-zinc-100 z-10">
+                Totales
+              </td>
+              {cycleStats.map((stats, i) => (
+                <td key={i} className="px-3 py-2.5 text-center align-top">
+                  {cycles[i]!.status === 'pending' ? (
+                    <span className="text-xs text-zinc-400">—</span>
+                  ) : (
+                    <div className="text-xs space-y-0.5">
+                      <div className="text-green-700 font-bold">{stats.reported} ✓</div>
+                      {stats.paused > 0 && <div className="text-yellow-600">{stats.paused} paso</div>}
+                      {stats.onLeave > 0 && <div className="text-zinc-500">{stats.onLeave} lic.</div>}
+                      <div className="text-red-600 font-semibold">{stats.noReport} ✗</div>
+                    </div>
+                  )}
                 </td>
               ))}
             </tr>
           </tbody>
         </table>
       </div>
+
     </div>
   );
 }
