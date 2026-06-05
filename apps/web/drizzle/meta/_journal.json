@@ -15,6 +15,20 @@
       "when": 1780072565984,
       "tag": "0001_lucky_kitty_pryde",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780590192975,
+      "tag": "0002_chilly_mystique",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1749139200000,
+      "tag": "0003_source_message_id",
+      "breakpoints": true
     }
   ]
 }

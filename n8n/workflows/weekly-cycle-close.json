@@ -4,7 +4,7 @@
   "nodes": [
     {
       "id": "node-schedule",
-      "name": "Cron sabado 10:00 ART",
+      "name": "Cron sabado 11:59 ART",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [240, 300],
@@ -13,7 +13,7 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "0 10 * * 6"
+              "expression": "59 11 * * 6"
             }
           ]
         }
@@ -123,7 +123,7 @@
     }
   ],
   "connections": {
-    "Cron viernes 18:00 ART": { "main": [[{ "node": "GET ciclo actual", "type": "main", "index": 0 }]] },
+    "Cron sabado 11:59 ART": { "main": [[{ "node": "GET ciclo actual", "type": "main", "index": 0 }]] },
     "GET ciclo actual": { "main": [[{ "node": "Ciclo abierto?", "type": "main", "index": 0 }]] },
     "Ciclo abierto?": {
       "main": [
