@@ -1,5 +1,8 @@
+// Endpoint que Julián activa desde el panel para procesar un ciclo cerrado.
+// Orquesta en secuencia todas las llamadas de IA necesarias para generar el consolidado
+// y los borradores de publicación. Es el "botón de proceso" del ciclo.
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
@@ -47,13 +50,27 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   logger.info({ cycleId, userId: session.user.id }, 'process cycle triggered');
 
-  // 1. Cerrar
-  const closeResult = await internalPost(`/api/internal/cycles/${cycleId}/close`, {});
-  if (!closeResult.ok) {
-    return NextResponse.json({ error: 'close failed', detail: closeResult.data }, { status: 500 });
+  // Limpiar consolidado y publicaciones anteriores para permitir regeneración libre.
+  // El cierre del ciclo ocurre solo por el job programado, no desde este botón.
+  const existingConsolidation = await db.query.consolidations.findFirst({
+    where: eq(schema.consolidations.cycle_id, cycleId),
+    columns: { id: true },
+  });
+  if (existingConsolidation) {
+    const existingPubs = await db.query.publications.findMany({
+      where: eq(schema.publications.consolidation_id, existingConsolidation.id),
+      columns: { id: true },
+    });
+    if (existingPubs.length > 0) {
+      const pubIds = existingPubs.map(p => p.id);
+      await db.delete(schema.publicationVersions).where(inArray(schema.publicationVersions.publication_id, pubIds));
+      await db.delete(schema.publications).where(inArray(schema.publications.id, pubIds));
+    }
+    await db.delete(schema.consolidations).where(eq(schema.consolidations.id, existingConsolidation.id));
+    logger.info({ cycleId, consolidationId: existingConsolidation.id }, 'consolidación anterior eliminada para regeneración');
   }
 
-  // 2. Consolidar
+  // Consolidar
   const consolidateResult = await internalPost('/api/internal/ai/consolidate', { cycleId });
   if (!consolidateResult.ok) {
     return NextResponse.json({ error: 'consolidate failed', detail: consolidateResult.data }, { status: 500 });

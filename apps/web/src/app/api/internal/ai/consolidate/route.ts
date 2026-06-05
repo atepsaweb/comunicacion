@@ -1,3 +1,12 @@
+// Endpoint de consolidación: genera el resumen semanal unificado de todos los reportes.
+// Solo puede llamarse cuando el ciclo está cerrado.
+// El proceso:
+//   1. Lee todos los reportes y sus ítems del ciclo
+//   2. Calcula las métricas de participación (cuántos reportaron, licencias, pausas)
+//   3. Prepara el prompt con todos los datos estructurados por autor
+//   4. Llama a Sonnet (el modelo más potente) para generar el Markdown del consolidado
+//   5. Guarda el consolidado en la base de datos y marca el ciclo como 'processed'
+// Si ya existe un consolidado para ese ciclo, devuelve el existente sin regenerar.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and, inArray } from 'drizzle-orm';
 import { db } from '@/db';
@@ -38,11 +47,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (!cycle) return NextResponse.json({ error: 'Cycle not found' }, { status: 404 });
 
-  if (cycle.status === 'open' || cycle.status === 'pending') {
-    return NextResponse.json({ error: 'Cycle must be closed before consolidating' }, { status: 422 });
-  }
-
-  // Si ya existe consolidación, devolver sin regenerar
+  // Si ya existe consolidación, devolver sin regenerar.
+  // Nota: el endpoint /cycles/:id/process limpia el consolidado antes de llamar acá,
+  // por lo que este guard aplica solo a llamadas directas (ej: desde el job de cierre).
   const existing = await db.query.consolidations.findFirst({
     where: eq(schema.consolidations.cycle_id, cycleId),
     columns: { id: true, status: true },
@@ -200,11 +207,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     })
     .returning({ id: schema.consolidations.id });
 
-  // Ciclo → processed
-  await db
-    .update(schema.weeklyCycles)
-    .set({ status: 'processed', processed_at: new Date(), updated_at: new Date() })
-    .where(eq(schema.weeklyCycles.id, cycleId));
+  // Solo avanza el estado si el ciclo ya estaba cerrado (el cierre lo hace el job programado)
+  if (cycle.status === 'closed') {
+    await db
+      .update(schema.weeklyCycles)
+      .set({ status: 'processed', processed_at: new Date(), updated_at: new Date() })
+      .where(eq(schema.weeklyCycles.id, cycleId));
+  }
 
   logger.info(
     { cycleId, consolidationId: consolidation.id, costUsd: result.costUsd },
