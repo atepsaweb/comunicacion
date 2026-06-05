@@ -109,16 +109,19 @@ export default async function CumplimientoPage() {
       : [];
 
   function resolveCellStatus(userId: string, cycle: (typeof cycles)[0]): CellStatus {
+    // Los mensajes tienen prioridad sobre las ausencias registradas:
+    // si el secretario mandó algo explícito esta semana, eso es lo que cuenta.
+    const summary = msgIndex.get(`${userId}:${cycle.id}`);
+    if (summary?.hasReport) return 'reported';
+    if (summary?.hasPause) return 'paused';
+
+    // Sin mensaje → verificar si tiene licencia registrada
     const { startDate, endDate } = getCycleDateRange(cycle.starts_at);
     const onLeave = absences.some(
       a => a.user_id === userId && a.starts_on <= endDate && a.ends_on >= startDate,
     );
     if (onLeave) return 'on_leave';
 
-    const summary = msgIndex.get(`${userId}:${cycle.id}`);
-    if (!summary) return 'no_report';
-    if (summary.hasReport) return 'reported';
-    if (summary.hasPause) return 'paused';
     return 'no_report';
   }
 
