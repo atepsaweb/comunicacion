@@ -37,12 +37,16 @@ export default async function CumplimientoPage() {
   if (!session) redirect('/login');
   if (session.user.role !== 'press_admin' && session.user.role !== 'executive') notFound();
 
-  // Últimas 3 semanas — incluye pending para mostrar la próxima
-  const cycles = await db.query.weeklyCycles.findMany({
+  // Últimas 3 semanas activas (excluye pending — la próxima no interesa)
+  // Se traen en DESC para tomar las más recientes, luego se invierten para mostrar
+  // de izquierda a derecha de la más antigua a la más reciente (S21 → S22 → S23).
+  const cyclesDesc = await db.query.weeklyCycles.findMany({
+    where: inArray(schema.weeklyCycles.status, ['open', 'closed', 'processed', 'published']),
     columns: { id: true, iso_week: true, year: true, status: true, starts_at: true },
     orderBy: [desc(schema.weeklyCycles.starts_at)],
     limit: 3,
   });
+  const cycles = [...cyclesDesc].reverse(); // S21 | S22 | S23
 
   // Todos los usuarios activos que reportan (secretary + executive + press_admin)
   const activeUsers = await db.query.users.findMany({
@@ -55,15 +59,14 @@ export default async function CumplimientoPage() {
   });
 
   const userIds = activeUsers.map(u => u.id);
-  const nonPendingCycles = cycles.filter(c => c.status !== 'pending');
-  const nonPendingIds = nonPendingCycles.map(c => c.id);
+  const cycleIds = cycles.map(c => c.id);
 
   // Mensajes relevantes: solo intent=report/followup/pause, no descartados
   const relevantMessages =
-    nonPendingIds.length > 0 && userIds.length > 0
+    cycleIds.length > 0 && userIds.length > 0
       ? await db.query.inboundMessages.findMany({
           where: and(
-            inArray(schema.inboundMessages.cycle_id, nonPendingIds),
+            inArray(schema.inboundMessages.cycle_id, cycleIds),
             inArray(schema.inboundMessages.user_id, userIds),
             inArray(schema.inboundMessages.intent, [
               'report',
@@ -88,7 +91,7 @@ export default async function CumplimientoPage() {
   }
 
   // Ausencias para licencias
-  const cycleRanges = nonPendingCycles.map(c => ({ id: c.id, ...getCycleDateRange(c.starts_at) }));
+  const cycleRanges = cycles.map(c => ({ id: c.id, ...getCycleDateRange(c.starts_at) }));
   const minDate = cycleRanges[cycleRanges.length - 1]?.startDate ?? '';
   const maxDate = cycleRanges[0]?.endDate ?? '';
 
@@ -105,8 +108,6 @@ export default async function CumplimientoPage() {
       : [];
 
   function resolveCellStatus(userId: string, cycle: (typeof cycles)[0]): CellStatus {
-    if (cycle.status === 'pending') return 'pending';
-
     const { startDate, endDate } = getCycleDateRange(cycle.starts_at);
     const onLeave = absences.some(
       a => a.user_id === userId && a.starts_on <= endDate && a.ends_on >= startDate,
@@ -190,7 +191,6 @@ export default async function CumplimientoPage() {
               </th>
               {cycles.map((c, i) => {
                 const isOpen = c.status === 'open';
-                const isPending = c.status === 'pending';
                 const stats = cycleStats[i]!;
                 return (
                   <th key={c.id} className="px-3 py-2 text-center min-w-[100px]">
@@ -204,17 +204,10 @@ export default async function CumplimientoPage() {
                             actual
                           </span>
                         )}
-                        {isPending && (
-                          <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-zinc-200 text-zinc-500">
-                            próxima
-                          </span>
-                        )}
                       </div>
-                      {!isPending && (
-                        <div className="text-[10px] font-normal text-zinc-400">
-                          {stats.reported}/{activeUsers.length} reportaron
-                        </div>
-                      )}
+                      <div className="text-[10px] font-normal text-zinc-400">
+                        {stats.reported}/{activeUsers.length} reportaron
+                      </div>
                     </div>
                   </th>
                 );
@@ -254,16 +247,12 @@ export default async function CumplimientoPage() {
               </td>
               {cycleStats.map((stats, i) => (
                 <td key={i} className="px-3 py-2.5 text-center align-top">
-                  {cycles[i]!.status === 'pending' ? (
-                    <span className="text-xs text-zinc-400">—</span>
-                  ) : (
-                    <div className="text-xs space-y-0.5">
-                      <div className="text-green-700 font-bold">{stats.reported} ✓</div>
-                      {stats.paused > 0 && <div className="text-yellow-600">{stats.paused} paso</div>}
-                      {stats.onLeave > 0 && <div className="text-zinc-500">{stats.onLeave} lic.</div>}
-                      <div className="text-red-600 font-semibold">{stats.noReport} ✗</div>
-                    </div>
-                  )}
+                  <div className="text-xs space-y-0.5">
+                    <div className="text-green-700 font-bold">{stats.reported} ✓</div>
+                    {stats.paused > 0 && <div className="text-yellow-600">{stats.paused} paso</div>}
+                    {stats.onLeave > 0 && <div className="text-zinc-500">{stats.onLeave} lic.</div>}
+                    <div className="text-red-600 font-semibold">{stats.noReport} ✗</div>
+                  </div>
                 </td>
               ))}
             </tr>
