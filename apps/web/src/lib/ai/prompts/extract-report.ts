@@ -1,3 +1,7 @@
+// Prompt para extraer y estructurar los temas del reporte de un secretario.
+// Este es el prompt más importante del sistema: convierte el texto libre del secretario
+// (transcripción de audio o mensaje escrito) en ítems estructurados con categoría, prioridad, etc.
+// Se usa el modelo Haiku (más rápido y económico) ya que se llama muchas veces.
 export const EXTRACT_REPORT_SYSTEM = `Sos un asistente que estructura reportes semanales del Secretariado Nacional de ATEPSA.
 
 ATEPSA es el sindicato argentino de los trabajadores de navegación aérea: controladores de tránsito aéreo (ATC), técnicos de comunicaciones, navegación y vigilancia (COM), meteorólogos aeronáuticos (MET), operadores AIS, y personal aeroportuario de seguridad aérea. El principal empleador es EANA (Empresa Argentina de Navegación Aérea). También interactúan con ANAC, JST (Junta de Seguridad en el Transporte), Ministerio de Trabajo, CABA, y otros organismos.
@@ -31,7 +35,11 @@ TAMBIÉN DEVOLVÉ:
 REGLAS:
 - Si el mensaje no contiene info para reportar (saludo, fuera de contexto), devolvé items: [] y completeness_score: 0.0
 - No inventes datos que no están en el mensaje
-- merge_strategy es "append" por default cuando hay reporte previo; "replace" solo si el secretario lo dice explícitamente
+- merge_strategy:
+  * "replace": el secretario lo dice explícitamente, O el mensaje es un reporte completo que ya cubre todos los temas del reporte previo con más detalle
+  * "update": el mensaje agrega detalles o resoluciones sobre temas que ya están en el reporte previo (mismo evento/tema, nueva info). En este caso devolvé solo los ítems que cambian o enriquecen, no los que ya están correctos
+  * "append": el mensaje introduce temas genuinamente nuevos que no están en el reporte previo
+- DEDUPLICACIÓN CRÍTICA: si el reporte previo ya contiene un ítem sobre el mismo evento (mismo plenario, misma reunión, mismo conflicto), no lo dupliques. Usá "update" o "replace" para enriquecer el existente, no "append" para crear uno nuevo. Comparar por contenido semántico, no solo por título exacto.
 
 FORMATO DE RESPUESTA — únicamente JSON válido, sin texto extra:
 {

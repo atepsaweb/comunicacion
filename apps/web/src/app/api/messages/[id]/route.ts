@@ -3,10 +3,8 @@
 // El borrado es lógico: marca discarded_at y discard_reason='deleted_by_user'.
 // El admin (press_admin) puede eliminar mensajes de cualquier usuario.
 //
-// El reporte y los ítems ya extraídos no se modifican automáticamente: si el
-// mensaje ya generó ítems en el reporte, el admin tiene que ajustarlo desde
-// la vista de revisión. Para mensajes recién enviados (sin procesar aún) no
-// pasa nada porque la cadena de IA respeta el filtro discarded_at IS NULL.
+// Si el mensaje ya generó report_items (source_message_id = id), esos ítems
+// se eliminan automáticamente para que no contaminen el consolidado.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';
@@ -47,10 +45,22 @@ export async function DELETE(
     })
     .where(eq(schema.inboundMessages.id, params.id));
 
+  // Eliminar los ítems que este mensaje generó (si ya fue procesado por la IA).
+  // Evita que contenido descartado aparezca en el consolidado.
+  const deleted = await db
+    .delete(schema.reportItems)
+    .where(eq(schema.reportItems.source_message_id, params.id))
+    .returning({ id: schema.reportItems.id });
+
   logger.info(
-    { messageId: params.id, deletedBy: session.user.id, asAdmin: isAdmin && !isOwner },
-    'inbound message discarded by user',
+    {
+      messageId: params.id,
+      deletedBy: session.user.id,
+      asAdmin: isAdmin && !isOwner,
+      itemsRemoved: deleted.length,
+    },
+    'inbound message discarded, report items cleaned',
   );
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, itemsRemoved: deleted.length });
 }

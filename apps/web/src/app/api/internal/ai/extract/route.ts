@@ -230,6 +230,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         priority: item.priority,
         is_public_safe: item.is_public_safe,
         order_index: startIndex + i,
+        source_message_id: messageId,
       })),
     );
   }
