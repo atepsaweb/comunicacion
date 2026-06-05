@@ -1,3 +1,8 @@
+// Página de cumplimiento: matriz de participación de todos los secretarios en las últimas semanas.
+// Solo visible para roles executive y press_admin.
+// Muestra una tabla donde cada fila es un secretario y cada columna es una semana.
+// Cada celda indica si reportó, tomó pausa, estaba de licencia o no reportó.
+// También permite descargar la matriz en formato Excel.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
@@ -29,6 +34,8 @@ function getCycleDateRange(startsAt: Date): { startDate: string; endDate: string
   return { startDate, endDate: endDt.toISOString().split('T')[0]! };
 }
 
+// Determina el estado de una celda de la matriz para un secretario en un ciclo dado.
+// Primero verifica si hay reporte; si no lo hay, verifica si estaba de licencia en ese período.
 function resolveCellStatus(
   userId: string,
   cycleId: string,
@@ -39,6 +46,7 @@ function resolveCellStatus(
 ): CellStatus {
   const status = reportMap.get(`${userId}:${cycleId}`);
   if (!status) {
+    // Si no hay reporte, verificar si tenía ausencia registrada que cubra ese período
     const onLeave = absences.some(
       a => a.user_id === userId && a.starts_on <= cycleEnd && a.ends_on >= cycleStart,
     );
@@ -55,10 +63,10 @@ export default async function CumplimientoPage() {
   if (!session) redirect('/login');
   if (session.user.role !== 'press_admin' && session.user.role !== 'executive') notFound();
 
-  // Últimos 12 ciclos cerrados
+  // Últimos 12 ciclos (incluye el abierto actual para mostrar participación en tiempo real)
   const cycles = await db.query.weeklyCycles.findMany({
-    where: inArray(schema.weeklyCycles.status, ['closed', 'processed', 'published']),
-    columns: { id: true, iso_week: true, year: true, starts_at: true },
+    where: inArray(schema.weeklyCycles.status, ['open', 'closed', 'processed', 'published']),
+    columns: { id: true, iso_week: true, year: true, starts_at: true, status: true },
     orderBy: [desc(schema.weeklyCycles.starts_at)],
     limit: 12,
   });
@@ -132,7 +140,7 @@ export default async function CumplimientoPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-zinc-900">Cumplimiento</h1>
-          <p className="text-zinc-500 mt-1 text-sm">Matriz de reporte — últimas {cycles.length} semanas cerradas.</p>
+          <p className="text-zinc-500 mt-1 text-sm">Matriz de reporte — últimas {cycles.length} semanas.</p>
         </div>
         <DownloadXlsxButton />
       </div>

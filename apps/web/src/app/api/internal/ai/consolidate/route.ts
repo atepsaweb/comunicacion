@@ -166,6 +166,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     model: CONSOLIDATE_INTERNAL_MODEL,
     systemBlocks: [{ text: systemText, cache: true }],
     userContent: buildConsolidatePrompt(consolidateInput),
+    maxTokens: 8192,
     relatedCycleId: cycleId,
     promptId: dbPrompt?.id,
   });

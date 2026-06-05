@@ -1,11 +1,19 @@
+// Cliente central para llamar a la API de Claude (IA de Anthropic).
+// Toda llamada a la IA del sistema pasa por este módulo, que:
+//   1. Llama a la API de Claude con los parámetros dados
+//   2. Calcula el costo de la llamada en dólares
+//   3. Registra todo en la tabla ai_invocations de la base de datos para auditoría
 import Anthropic from '@anthropic-ai/sdk';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { logger } from '@/lib/logger';
 
+// Instancia del cliente de Anthropic, autenticado con la API key del entorno
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// USD por millón de tokens
+// Precio en USD por millón de tokens para cada modelo.
+// Haiku es más barato y se usa para tareas rápidas (clasificar, extraer).
+// Sonnet es más potente y se usa para tareas complejas (redactar publicaciones, consolidar).
 const COST_TABLE: Record<string, { input: number; output: number; cache_read: number }> = {
   'claude-haiku-4-5-20251001': { input: 1.0, output: 5.0, cache_read: 0.1 },
   'claude-sonnet-4-6': { input: 3.0, output: 15.0, cache_read: 0.3 },
@@ -24,6 +32,7 @@ export type CallAIParams = {
   model: string;
   systemBlocks: SystemBlock[];
   userContent: string;
+  maxTokens?: number;
   triggeredBy?: AITriggeredBy;
   relatedReportId?: string;
   relatedCycleId?: string;
@@ -40,6 +49,10 @@ export type CallAIResult = {
   invocationId: string;
 };
 
+/**
+ * Función principal: llama a la API de Claude y registra el resultado en la base de datos.
+ * Todos los endpoints de IA del sistema usan esta función.
+ */
 export async function callAI(params: CallAIParams): Promise<CallAIResult> {
   const {
     purpose,
@@ -52,6 +65,8 @@ export async function callAI(params: CallAIParams): Promise<CallAIResult> {
     promptId,
   } = params;
 
+  // Construir el contenido del sistema con soporte para prompt caching de Anthropic.
+  // Los bloques marcados con cache:true se cachean en la API para reducir costos en llamadas repetidas.
   const systemContent = systemBlocks.map(b => ({
     type: 'text' as const,
     text: b.text,
@@ -69,7 +84,7 @@ export async function callAI(params: CallAIParams): Promise<CallAIResult> {
   try {
     const response = await anthropic.messages.create({
       model,
-      max_tokens: 2048,
+      max_tokens: params.maxTokens ?? 2048,
       system: systemContent,
       messages: [{ role: 'user', content: userContent }],
     });
