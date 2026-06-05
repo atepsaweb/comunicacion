@@ -58,7 +58,7 @@ export async function POST(req: NextRequest, { params }: Props): Promise<NextRes
     return NextResponse.json({ error: 'User not found' }, { status: 404 });
   }
 
-  const firstName = user.full_name.split(/\s+/).pop() ?? user.full_name;
+  const firstName = user.full_name.split(/\s+/)[0] ?? user.full_name;
 
   // Contar ítems del reporte actual para este secretario/ciclo
   let itemCount = 0;
@@ -84,10 +84,10 @@ export async function POST(req: NextRequest, { params }: Props): Promise<NextRes
   let ackText: string;
 
   if (intent === 'greeting') {
-    // Saludo sin contenido: responder el saludo e invitar a reportar
+    // Saludo sin contenido: responder e invitar a reportar directamente
     ackText = cycle
-      ? `¡Hola, ${firstName}! 👋 ¿Cómo estás?\n\nCuando quieras, contame qué hiciste esta semana — reuniones, gestiones, novedades laborales. Un audio o texto está perfecto.`
-      : `¡Hola, ${firstName}! 👋 Todavía no hay un ciclo de reporte abierto, pero cuando abra podés mandarme tus novedades de la semana por audio o texto.`;
+      ? `¡Hola, ${firstName}! Contame qué hiciste esta semana: reuniones, gestiones, novedades laborales. Un audio o texto está perfecto.`
+      : `¡Hola, ${firstName}! Todavía no hay un ciclo de reporte abierto. Cuando abra, contame tus novedades de la semana por audio o texto.`;
   } else if (itemCount > 0) {
     // Reporte con contenido: confirmar que quedó registrado
     ackText = cycle

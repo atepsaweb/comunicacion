@@ -107,7 +107,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Solo extraemos si el mensaje es un reporte o una respuesta de seguimiento
-  if (msg.intent === 'absence_request' || msg.intent === 'weekly_pause' || msg.intent === 'unknown') {
+  if (msg.intent === 'absence_request' || msg.intent === 'weekly_pause' || msg.intent === 'unknown' || msg.intent === 'greeting') {
     return NextResponse.json({ skipped: true, reason: 'intent_not_report', intent: msg.intent });
   }
 
