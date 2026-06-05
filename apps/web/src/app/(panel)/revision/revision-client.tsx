@@ -125,6 +125,7 @@ export function RevisionClient({
   const [editConsolidationText, setEditConsolidationText] = useState('');
   const [savingConsolidation, setSavingConsolidation] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
+  const [downloadingIndividualReports, setDownloadingIndividualReports] = useState(false);
 
   // Estado consolidado — aprobación
   const [consolidationApproved, setConsolidationApproved] = useState(
@@ -242,6 +243,25 @@ export function RevisionClient({
 
   function handlePrintPdf() {
     window.print();
+  }
+
+  async function handleDownloadIndividualReports() {
+    setDownloadingIndividualReports(true);
+    try {
+      const res = await fetch(`/api/cycles/${cycle.id}/export`);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ATEPSA-reportes-individuales-semana-${cycle.isoWeek}-${cycle.year}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingIndividualReports(false);
+    }
   }
 
   // ─── Acciones de publicaciones ──────────────────────────────────────────────
@@ -606,6 +626,27 @@ export function RevisionClient({
         <Card className="border-dashed print:hidden">
           <CardContent className="py-8 text-center">
             <p className="text-zinc-400 text-sm">No se generaron publicaciones. Probá &ldquo;Reprocesar ciclo&rdquo;.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Reportes individuales ────────────────────────────────────────────── */}
+      {hasProcessed && (
+        <Card className="print:hidden">
+          <CardContent className="py-4 px-4 sm:px-5">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <h3 className="font-medium text-zinc-900 text-sm">Reportes individuales</h3>
+                <p className="text-xs text-zinc-400 mt-0.5">Resumen por secretario en un solo documento</p>
+              </div>
+              <button
+                onClick={handleDownloadIndividualReports}
+                disabled={downloadingIndividualReports}
+                className="text-xs px-2.5 py-1 bg-zinc-800 text-white rounded hover:bg-zinc-700 disabled:opacity-50 transition-colors shrink-0"
+              >
+                {downloadingIndividualReports ? 'Generando…' : '⬇ Descargar .docx'}
+              </button>
+            </div>
           </CardContent>
         </Card>
       )}
