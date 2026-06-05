@@ -41,7 +41,6 @@ const DEFAULT_SETTINGS: Array<{ key: string; value: unknown }> = [
   {
     key: 'whatsapp_meta_templates',
     value: {
-      otp_login: { name: 'atepsa_otp_login', language: 'es_AR', body_params: ['code'], auth_otp: true },
       weekly_kickoff: { name: 'atepsa_weekly_kickoff', language: 'es_AR', body_params: ['firstName'] },
       weekly_reminder: { name: 'atepsa_weekly_reminder', language: 'es_AR', body_params: ['firstName'] },
       weekly_delivery: { name: 'atepsa_weekly_delivery', language: 'es_AR', body_params: ['firstName', 'week'] },

@@ -26,7 +26,6 @@ const PURPOSES = [
   'reminder',
   'followup_question',
   'consolidation_delivery',
-  'otp',
   'admin_message',
   'other',
 ] as const;

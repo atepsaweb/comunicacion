@@ -173,14 +173,12 @@ export const aiTriggeredByEnum = pgEnum('ai_triggered_by', [
 // - reminder: recordatorio para secretarios que no reportaron
 // - followup_question: pregunta de seguimiento generada por la IA
 // - consolidation_delivery: envío del consolidado aprobado
-// - otp: código de un solo uso para iniciar sesión en el panel
 // - admin_message: mensaje manual enviado por el administrador
 export const outboundPurposeEnum = pgEnum('outbound_purpose', [
   'weekly_trigger',
   'reminder',
   'followup_question',
   'consolidation_delivery',
-  'otp',
   'admin_message',
   'other',
 ]);
