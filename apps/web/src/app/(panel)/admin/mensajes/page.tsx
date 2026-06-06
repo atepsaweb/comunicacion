@@ -36,6 +36,8 @@ export default async function AdminMensajesPage() {
       document_method: schema.documentExtractions.extraction_method,
       user_full_name: schema.users.full_name,
       user_position: schema.users.position,
+      audio_path: schema.inboundMessages.audio_path,
+      document_path: schema.inboundMessages.document_path,
     })
     .from(schema.inboundMessages)
     .leftJoin(
@@ -83,6 +85,8 @@ export default async function AdminMensajesPage() {
     documentMethod: r.document_method,
     userFullName: r.user_full_name,
     userPosition: r.user_position,
+    audioPath: r.audio_path,
+    documentPath: r.document_path,
   }));
 
   return <MensajesLiveClient initialMessages={messages} />;

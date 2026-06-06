@@ -8,12 +8,14 @@ import { useRouter } from 'next/navigation';
 import {
   ChevronDown,
   ChevronRight,
+  Download,
   FileText,
   FileType2,
   Image as ImageIcon,
   MessageSquare,
   Mic,
   RefreshCw,
+  X,
 } from 'lucide-react';
 
 const REFRESH_INTERVAL_MS = 10_000;
@@ -35,6 +37,8 @@ export type MensajeRow = {
   documentMethod: string | null;
   userFullName: string | null;
   userPosition: string | null;
+  audioPath: string | null;
+  documentPath: string | null;
 };
 
 type KindBadge = {
@@ -63,6 +67,66 @@ function kindBadge(kind: string, mimeType: string | null): KindBadge {
     return { label: 'Transcripción .txt', classes: 'bg-amber-50 text-amber-700 border-amber-200', Icon: FileText };
   }
   return { label: 'Archivo', classes: 'bg-zinc-100 text-zinc-700 border-zinc-200', Icon: FileText };
+}
+
+function mediaUrl(id: string): string {
+  return `/api/media/message/${id}`;
+}
+
+function BadgeElement({
+  msg,
+  badge,
+  onOpenLightbox,
+}: {
+  msg: MensajeRow;
+  badge: KindBadge;
+  onOpenLightbox: (url: string) => void;
+}) {
+  const Icon = badge.Icon;
+  const base = `inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium ${badge.classes}`;
+
+  if (msg.mimeType?.startsWith('image/') && msg.documentPath) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onOpenLightbox(mediaUrl(msg.id)); }}
+        className={`${base} cursor-pointer hover:opacity-75`}
+      >
+        <Icon className="h-3 w-3" />
+        {badge.label}
+      </button>
+    );
+  }
+
+  const isDoc =
+    (msg.mimeType === 'application/pdf' ||
+      msg.mimeType?.includes('wordprocessingml') ||
+      msg.mimeType === 'application/msword') &&
+    msg.documentPath;
+
+  if (isDoc) {
+    return (
+      <a
+        href={mediaUrl(msg.id)}
+        download
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={`${base} cursor-pointer hover:opacity-75`}
+      >
+        <Icon className="h-3 w-3" />
+        {badge.label}
+        <Download className="h-2.5 w-2.5 opacity-50" />
+      </a>
+    );
+  }
+
+  return (
+    <span className={base}>
+      <Icon className="h-3 w-3" />
+      {badge.label}
+    </span>
+  );
 }
 
 type Status =
@@ -122,6 +186,7 @@ export function MensajesLiveClient({ initialMessages }: Props) {
   const [showDiscarded, setShowDiscarded] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [, force] = useState(0);
   const inflight = useRef(false);
 
@@ -207,10 +272,10 @@ export function MensajesLiveClient({ initialMessages }: Props) {
             const badge = kindBadge(msg.kind, msg.mimeType);
             const { date, time } = formatDateTime(msg.receivedAt);
             const st = statusOf(msg);
-            const Badge = badge.Icon;
             const author = msg.userFullName ?? msg.fromPhoneE164;
             const text = preview(msg);
             const full = fullContent(msg);
+            const isImage = msg.mimeType?.startsWith('image/') && msg.documentPath;
             return (
               <div
                 key={msg.id}
@@ -224,16 +289,26 @@ export function MensajesLiveClient({ initialMessages }: Props) {
                     <span className="text-xs font-medium text-zinc-700 tabular-nums">
                       {date} · {time}
                     </span>
-                    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium ${badge.classes}`}>
-                      <Badge className="h-3 w-3" />
-                      {badge.label}
-                    </span>
+                    <BadgeElement msg={msg} badge={badge} onOpenLightbox={setLightboxUrl} />
                   </div>
                   <p className="text-sm font-medium text-zinc-900 truncate">{author}</p>
                   {msg.userPosition && (
                     <p className="text-[11px] text-zinc-500 truncate">{msg.userPosition}</p>
                   )}
-                  {text ? (
+                  {isImage ? (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setLightboxUrl(mediaUrl(msg.id)); }}
+                      className="mt-1.5 block"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={mediaUrl(msg.id)}
+                        alt="Imagen"
+                        className="h-14 w-auto max-w-[140px] rounded border border-zinc-200 object-cover"
+                      />
+                    </button>
+                  ) : text ? (
                     <p className="text-xs text-zinc-600 mt-1.5 line-clamp-2">{text}</p>
                   ) : (
                     <p className="text-xs text-zinc-400 italic mt-1.5">
@@ -246,8 +321,28 @@ export function MensajesLiveClient({ initialMessages }: Props) {
                   </div>
                 </button>
                 {isExpanded && (
-                  <div className="px-3 pb-3 border-t border-zinc-100 pt-3 text-sm text-zinc-800 whitespace-pre-wrap break-words">
-                    {full || <span className="text-zinc-400 italic">Sin contenido extraído.</span>}
+                  <div className="px-3 pb-3 border-t border-zinc-100 pt-3">
+                    {msg.kind === 'audio' && msg.audioPath && (
+                      // eslint-disable-next-line jsx-a11y/media-has-caption
+                      <audio controls src={mediaUrl(msg.id)} className="w-full mb-2" />
+                    )}
+                    {isImage && (
+                      <button
+                        type="button"
+                        onClick={() => setLightboxUrl(mediaUrl(msg.id))}
+                        className="block mb-2"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={mediaUrl(msg.id)}
+                          alt="Imagen"
+                          className="max-h-[240px] w-auto rounded border border-zinc-200"
+                        />
+                      </button>
+                    )}
+                    <div className="text-sm text-zinc-800 whitespace-pre-wrap break-words">
+                      {full || <span className="text-zinc-400 italic">Sin contenido extraído.</span>}
+                    </div>
                     <div className="mt-3 text-[11px] text-zinc-500 space-y-0.5">
                       <p>De: <span className="font-mono">{msg.fromPhoneE164}</span></p>
                       {msg.transcriptionDuration != null && (
@@ -292,10 +387,10 @@ export function MensajesLiveClient({ initialMessages }: Props) {
               const badge = kindBadge(msg.kind, msg.mimeType);
               const { date, time } = formatDateTime(msg.receivedAt);
               const st = statusOf(msg);
-              const Badge = badge.Icon;
               const author = msg.userFullName ?? msg.fromPhoneE164;
               const text = preview(msg);
               const full = fullContent(msg);
+              const isImage = msg.mimeType?.startsWith('image/') && msg.documentPath;
               const stripe = i % 2 === 0 ? 'bg-white' : 'bg-zinc-50/50';
               const dim = msg.discardedAt ? 'opacity-55' : '';
               return (
@@ -315,13 +410,23 @@ export function MensajesLiveClient({ initialMessages }: Props) {
                       )}
                     </td>
                     <td className="px-3 py-2.5 align-top">
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[10px] font-medium ${badge.classes}`}>
-                        <Badge className="h-3 w-3" />
-                        {badge.label}
-                      </span>
+                      <BadgeElement msg={msg} badge={badge} onOpenLightbox={setLightboxUrl} />
                     </td>
                     <td className="px-3 py-2.5 align-top text-zinc-700 text-sm">
-                      {text ? (
+                      {isImage ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setLightboxUrl(mediaUrl(msg.id)); }}
+                          className="block"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={mediaUrl(msg.id)}
+                            alt="Imagen"
+                            className="h-12 w-auto max-w-[150px] rounded border border-zinc-200 object-cover"
+                          />
+                        </button>
+                      ) : text ? (
                         <span className="line-clamp-2">{text}</span>
                       ) : (
                         <span className="text-zinc-400 italic text-xs">
@@ -358,6 +463,24 @@ export function MensajesLiveClient({ initialMessages }: Props) {
                   {isExpanded && (
                     <tr className={`${stripe} ${dim} border-b border-zinc-100`}>
                       <td colSpan={6} className="px-6 py-4">
+                        {msg.kind === 'audio' && msg.audioPath && (
+                          // eslint-disable-next-line jsx-a11y/media-has-caption
+                          <audio controls src={mediaUrl(msg.id)} className="w-full mb-3" />
+                        )}
+                        {isImage && (
+                          <button
+                            type="button"
+                            onClick={() => setLightboxUrl(mediaUrl(msg.id))}
+                            className="block mb-3"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={mediaUrl(msg.id)}
+                              alt="Imagen"
+                              className="max-h-[280px] w-auto rounded border border-zinc-200"
+                            />
+                          </button>
+                        )}
                         <div className="text-sm text-zinc-800 whitespace-pre-wrap break-words leading-relaxed">
                           {full || <span className="text-zinc-400 italic">Sin contenido extraído.</span>}
                         </div>
@@ -380,6 +503,28 @@ export function MensajesLiveClient({ initialMessages }: Props) {
           </tbody>
         </table>
       </div>
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setLightboxUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="Imagen completa"
+            className="max-h-[90vh] max-w-[90vw] rounded object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30"
+            aria-label="Cerrar"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
