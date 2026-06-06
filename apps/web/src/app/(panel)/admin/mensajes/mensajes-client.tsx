@@ -6,6 +6,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  Bot,
   ChevronDown,
   ChevronRight,
   Download,
@@ -37,8 +38,17 @@ export type MensajeRow = {
   documentMethod: string | null;
   userFullName: string | null;
   userPosition: string | null;
+  userId: string | null;
   audioPath: string | null;
   documentPath: string | null;
+};
+
+export type BotMessageRow = {
+  id: string;
+  userId: string | null;
+  body: string;
+  sentAt: string;
+  deliveryStatus: string;
 };
 
 type KindBadge = {
@@ -129,6 +139,36 @@ function BadgeElement({
   );
 }
 
+// Asigna las repreguntas del bot a su mensaje entrante "padre".
+// Estrategia: tomamos todos los mensajes del bot con purpose=followup_question
+// enviados al mismo usuario, DESPUÉS de receivedAt del mensaje y ANTES del
+// próximo mensaje entrante de ese usuario (o dentro de 6h si no hay ninguno).
+// allInbound debe estar ordenado desc por receivedAt (como viene de la query).
+function getReplies(
+  msg: MensajeRow,
+  allInbound: readonly MensajeRow[],
+  botMsgs: BotMessageRow[],
+): BotMessageRow[] {
+  if (!msg.userId) return [];
+  const msgTime = new Date(msg.receivedAt).getTime();
+  const BURST_MS = 6 * 60 * 60 * 1000; // ventana de 6 horas (igual que assess-completeness)
+
+  // Buscar el próximo mensaje del mismo usuario en el tiempo (índice menor = más reciente)
+  const idx = allInbound.findIndex(m => m.id === msg.id);
+  let upperBound = msgTime + BURST_MS;
+  for (let i = idx - 1; i >= 0; i--) {
+    if (allInbound[i].userId === msg.userId) {
+      upperBound = new Date(allInbound[i].receivedAt).getTime();
+      break;
+    }
+  }
+
+  return botMsgs.filter(b => {
+    const t = new Date(b.sentAt).getTime();
+    return b.userId === msg.userId && t > msgTime && t < upperBound;
+  });
+}
+
 type Status =
   | { kind: 'discarded'; reason: string }
   | { kind: 'processed' }
@@ -179,9 +219,10 @@ function secondsAgo(iso: string): number {
 
 interface Props {
   initialMessages: MensajeRow[];
+  botMessages: BotMessageRow[];
 }
 
-export function MensajesLiveClient({ initialMessages }: Props) {
+export function MensajesLiveClient({ initialMessages, botMessages }: Props) {
   const router = useRouter();
   const [showDiscarded, setShowDiscarded] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -276,6 +317,7 @@ export function MensajesLiveClient({ initialMessages }: Props) {
             const text = preview(msg);
             const full = fullContent(msg);
             const isImage = msg.mimeType?.startsWith('image/') && msg.documentPath;
+            const replies = getReplies(msg, initialMessages, botMessages);
             return (
               <div
                 key={msg.id}
@@ -315,9 +357,17 @@ export function MensajesLiveClient({ initialMessages }: Props) {
                       {st.kind === 'pending' ? 'Procesando…' : st.kind === 'discarded' ? `Descartado (${st.reason})` : st.kind === 'unregistered' ? 'Número no registrado' : '—'}
                     </p>
                   )}
-                  <div className="mt-2 flex items-center gap-1 text-xs text-zinc-500">
-                    {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                    {isExpanded ? 'Ocultar' : 'Ver más'}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1 text-xs text-zinc-500">
+                      {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                      {isExpanded ? 'Ocultar' : 'Ver más'}
+                    </span>
+                    {replies.length > 0 && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-1.5 py-0.5">
+                        <Bot className="h-2.5 w-2.5" />
+                        {replies.length} repregunta{replies.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
                 </button>
                 {isExpanded && (
@@ -343,6 +393,30 @@ export function MensajesLiveClient({ initialMessages }: Props) {
                     <div className="text-sm text-zinc-800 whitespace-pre-wrap break-words">
                       {full || <span className="text-zinc-400 italic">Sin contenido extraído.</span>}
                     </div>
+                    {replies.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-zinc-100">
+                        <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">
+                          Repreguntas del bot
+                        </p>
+                        <div className="space-y-3">
+                          {replies.map(r => (
+                            <div key={r.id} className="flex items-start gap-2">
+                              <div className="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                                <Bot className="h-3 w-3 text-emerald-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] text-zinc-400 mb-0.5">
+                                  {new Date(r.sentAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                                  {' · '}
+                                  {r.deliveryStatus === 'read' ? 'leída' : r.deliveryStatus === 'delivered' ? 'entregada' : 'enviada'}
+                                </p>
+                                <p className="text-sm text-zinc-700 leading-snug">{r.body}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="mt-3 text-[11px] text-zinc-500 space-y-0.5">
                       <p>De: <span className="font-mono">{msg.fromPhoneE164}</span></p>
                       {msg.transcriptionDuration != null && (
@@ -391,6 +465,7 @@ export function MensajesLiveClient({ initialMessages }: Props) {
               const text = preview(msg);
               const full = fullContent(msg);
               const isImage = msg.mimeType?.startsWith('image/') && msg.documentPath;
+              const replies = getReplies(msg, initialMessages, botMessages);
               const stripe = i % 2 === 0 ? 'bg-white' : 'bg-zinc-50/50';
               const dim = msg.discardedAt ? 'opacity-55' : '';
               return (
@@ -448,6 +523,12 @@ export function MensajesLiveClient({ initialMessages }: Props) {
                       >
                         {st.kind === 'processed' ? 'procesado' : st.kind === 'pending' ? 'pendiente' : st.kind === 'discarded' ? 'descartado' : 'sin registrar'}
                       </span>
+                      {replies.length > 0 && (
+                        <span className="mt-1 flex items-center gap-1 text-[10px] font-medium text-emerald-700">
+                          <Bot className="h-2.5 w-2.5" />
+                          {replies.length} repregunta{replies.length !== 1 ? 's' : ''}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 align-top text-right">
                       <button
@@ -484,6 +565,30 @@ export function MensajesLiveClient({ initialMessages }: Props) {
                         <div className="text-sm text-zinc-800 whitespace-pre-wrap break-words leading-relaxed">
                           {full || <span className="text-zinc-400 italic">Sin contenido extraído.</span>}
                         </div>
+                        {replies.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-zinc-100">
+                            <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide mb-2">
+                              Repreguntas del bot
+                            </p>
+                            <div className="space-y-3">
+                              {replies.map(r => (
+                                <div key={r.id} className="flex items-start gap-2">
+                                  <div className="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full bg-emerald-100 flex items-center justify-center">
+                                    <Bot className="h-3 w-3 text-emerald-600" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] text-zinc-400 mb-0.5">
+                                      {new Date(r.sentAt).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
+                                      {' · '}
+                                      {r.deliveryStatus === 'read' ? 'leída' : r.deliveryStatus === 'delivered' ? 'entregada' : 'enviada'}
+                                    </p>
+                                    <p className="text-sm text-zinc-700 leading-snug">{r.body}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-zinc-500">
                           <span>De: <span className="font-mono">{msg.fromPhoneE164}</span></span>
                           {msg.transcriptionDuration != null && (

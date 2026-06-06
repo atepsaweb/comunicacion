@@ -4,11 +4,11 @@
 // auto-refresh cada 10s.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
-import { eq, desc, isNull, notInArray, or } from 'drizzle-orm';
+import { eq, desc, isNull, notInArray, or, gte, and, asc } from 'drizzle-orm';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { MensajesLiveClient, type MensajeRow } from './mensajes-client';
+import { MensajesLiveClient, type MensajeRow, type BotMessageRow } from './mensajes-client';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -36,6 +36,7 @@ export default async function AdminMensajesPage() {
       document_method: schema.documentExtractions.extraction_method,
       user_full_name: schema.users.full_name,
       user_position: schema.users.position,
+      user_id: schema.inboundMessages.user_id,
       audio_path: schema.inboundMessages.audio_path,
       document_path: schema.inboundMessages.document_path,
     })
@@ -85,9 +86,41 @@ export default async function AdminMensajesPage() {
     documentMethod: r.document_method,
     userFullName: r.user_full_name,
     userPosition: r.user_position,
+    userId: r.user_id,
     audioPath: r.audio_path,
     documentPath: r.document_path,
   }));
 
-  return <MensajesLiveClient initialMessages={messages} />;
+  // Traer las repreguntas del bot en la misma ventana temporal.
+  // Se limita a followup_question para no traer triggers/recordatorios al visor de conversación.
+  const oldestAt = messages.length > 0
+    ? new Date(messages[messages.length - 1].receivedAt)
+    : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const botRows = await db
+    .select({
+      id: schema.outboundMessages.id,
+      user_id: schema.outboundMessages.user_id,
+      body: schema.outboundMessages.body,
+      sent_at: schema.outboundMessages.sent_at,
+      delivery_status: schema.outboundMessages.delivery_status,
+    })
+    .from(schema.outboundMessages)
+    .where(
+      and(
+        eq(schema.outboundMessages.purpose, 'followup_question'),
+        gte(schema.outboundMessages.sent_at, oldestAt),
+      ),
+    )
+    .orderBy(asc(schema.outboundMessages.sent_at));
+
+  const botMessages: BotMessageRow[] = botRows.map(r => ({
+    id: r.id,
+    userId: r.user_id,
+    body: r.body,
+    sentAt: r.sent_at.toISOString(),
+    deliveryStatus: r.delivery_status,
+  }));
+
+  return <MensajesLiveClient initialMessages={messages} botMessages={botMessages} />;
 }
