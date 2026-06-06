@@ -1,5 +1,6 @@
 // Endpoint para exportar el resumen individual de cada secretario como .docx.
-// Genera un documento con una sección por secretario, con su reporte de la semana.
+// Genera un documento con una sección por secretario, con sus ítems de reporte.
+// Usa reportItems (el mismo origen que la consolidación), NO summary_md.
 // Solo accesible para press_admin.
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -9,12 +10,10 @@ import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { markdownToDocx } from '@/lib/export/markdown-to-docx';
 
-const STATUS_LABEL: Record<string, string> = {
+const NO_CONTENT_LABEL: Record<string, string> = {
   no_report: 'No presentó reporte esta semana.',
   paused:    'Pausa esta semana.',
   on_leave:  'Licencia esta semana.',
-  draft:     'Reporte en borrador (sin procesar aún).',
-  submitted: 'Reporte recibido (sin procesar aún).',
 };
 
 export async function GET(
@@ -49,16 +48,36 @@ export async function GET(
       ? await db.query.reports.findMany({
           where: and(
             eq(schema.reports.cycle_id, cycleId),
-            inArray(
-              schema.reports.user_id,
-              users.map(u => u.id),
-            ),
+            inArray(schema.reports.user_id, users.map(u => u.id)),
           ),
-          columns: { user_id: true, status: true, summary_md: true },
+          columns: { id: true, user_id: true, status: true },
         })
       : [];
 
-  const reportMap = new Map(reports.map(r => [r.user_id, r]));
+  // Leer ítems de todos los reportes de una vez
+  const reportIds = reports.map(r => r.id);
+  const allItems =
+    reportIds.length > 0
+      ? await db.query.reportItems.findMany({
+          where: inArray(schema.reportItems.report_id, reportIds),
+          columns: {
+            report_id: true,
+            category: true,
+            title: true,
+            description_md: true,
+            priority: true,
+            order_index: true,
+          },
+          orderBy: [schema.reportItems.order_index],
+        })
+      : [];
+
+  const reportById = new Map(reports.map(r => [r.user_id, r]));
+  const itemsByReport = new Map<string, typeof allItems>();
+  for (const item of allItems) {
+    if (!itemsByReport.has(item.report_id)) itemsByReport.set(item.report_id, []);
+    itemsByReport.get(item.report_id)!.push(item);
+  }
 
   // ─── Construir el Markdown del documento ────────────────────────────────────
 
@@ -86,19 +105,44 @@ export async function GET(
       : `## ${user.full_name}`;
     lines.push(heading, '');
 
-    const report = reportMap.get(user.id);
+    const report = reportById.get(user.id);
 
     if (!report) {
       lines.push('*Sin reporte registrado.*', '', '---', '');
       continue;
     }
 
-    if (report.summary_md) {
-      lines.push(report.summary_md, '', '---', '');
-    } else {
-      const label = STATUS_LABEL[report.status] ?? 'Sin contenido disponible.';
+    const items = itemsByReport.get(report.id) ?? [];
+
+    if (items.length === 0) {
+      const label = NO_CONTENT_LABEL[report.status] ?? 'Sin ítems reportados esta semana.';
       lines.push(`*${label}*`, '', '---', '');
+      continue;
     }
+
+    // Agrupar ítems por categoría
+    const byCategory = new Map<string, typeof items>();
+    for (const item of items) {
+      if (!byCategory.has(item.category)) byCategory.set(item.category, []);
+      byCategory.get(item.category)!.push(item);
+    }
+
+    for (const [category, catItems] of Array.from(byCategory)) {
+      lines.push(`### ${category}`, '');
+      for (const item of catItems) {
+        const prioTag = item.priority === 'high' ? ' *(alta prioridad)*' : '';
+        lines.push(`- **${item.title}**${prioTag}`);
+        if (item.description_md) {
+          // Indentar descripción como sub-bullet
+          for (const descLine of item.description_md.split('\n')) {
+            if (descLine.trim()) lines.push(`  ${descLine}`);
+          }
+        }
+        lines.push('');
+      }
+    }
+
+    lines.push('---', '');
   }
 
   const markdown = lines.join('\n');
