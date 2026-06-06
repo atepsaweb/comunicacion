@@ -6,7 +6,7 @@
 // devuelve flags para que n8n sepa cómo procesarlo.
 // Solo puede ser llamado internamente (requiere INTERNAL_API_SECRET).
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, or, desc } from 'drizzle-orm';
+import { and, eq, or, lte, gte } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
@@ -120,13 +120,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     columns: { id: true },
   });
 
-  // Ciclo: primero el open, si no hay el closed más reciente
+  // Ciclo: buscar el ciclo cuyo rango de fechas cubre el timestamp del mensaje.
+  // La búsqueda por status más reciente (approch anterior) fallaba cuando el ciclo
+  // activo estaba en 'processed' o cuando el siguiente ciclo ya estaba 'open'.
+  // Incluimos 'processed' para aceptar mensajes tardíos dentro del período del ciclo.
   const cycle = await db.query.weeklyCycles.findFirst({
-    where: or(
-      eq(schema.weeklyCycles.status, 'open'),
-      eq(schema.weeklyCycles.status, 'closed'),
+    where: and(
+      or(
+        eq(schema.weeklyCycles.status, 'open'),
+        eq(schema.weeklyCycles.status, 'closed'),
+        eq(schema.weeklyCycles.status, 'processed'),
+      ),
+      lte(schema.weeklyCycles.starts_at, receivedAt),
+      gte(schema.weeklyCycles.ends_at, receivedAt),
     ),
-    orderBy: [desc(schema.weeklyCycles.starts_at)],
     columns: { id: true, status: true },
   });
 
