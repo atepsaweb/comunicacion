@@ -30,7 +30,13 @@ async function internalPost(path: string, body: unknown): Promise<{ ok: boolean;
     },
     body: JSON.stringify(body),
   });
-  const data = await res.json();
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    // El endpoint devolvió HTML (Next.js 500 sin manejador de error) — no es JSON
+    data = { error: `non-json response (http ${res.status})` };
+  }
   return { ok: res.ok, data };
 }
 
@@ -42,13 +48,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const cycleId = params.id;
 
+  try {
+    return await processHandler(cycleId, session.user.id);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logger.error({ err, cycleId }, 'process cycle unhandled error');
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+async function processHandler(cycleId: string, userId: string): Promise<NextResponse> {
   const cycle = await db.query.weeklyCycles.findFirst({
     where: eq(schema.weeklyCycles.id, cycleId),
     columns: { id: true, status: true },
   });
   if (!cycle) return NextResponse.json({ error: 'Cycle not found' }, { status: 404 });
 
-  logger.info({ cycleId, userId: session.user.id }, 'process cycle triggered');
+  logger.info({ cycleId, userId }, 'process cycle triggered');
 
   // Limpiar consolidado y publicaciones anteriores para permitir regeneración libre.
   // El cierre del ciclo ocurre solo por el job programado, no desde este botón.

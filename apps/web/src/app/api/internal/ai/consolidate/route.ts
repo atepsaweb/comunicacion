@@ -196,17 +196,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ),
   };
 
-  const [consolidation] = await db
-    .insert(schema.consolidations)
-    .values({
-      cycle_id: cycleId,
-      internal_summary_md: result.text,
-      themes: themes as unknown as Record<string, unknown>,
-      metrics: metrics as unknown as Record<string, unknown>,
-      generated_at: new Date(),
-      status: 'draft',
-    })
-    .returning({ id: schema.consolidations.id });
+  let consolidation: { id: string };
+  try {
+    const [row] = await db
+      .insert(schema.consolidations)
+      .values({
+        cycle_id: cycleId,
+        internal_summary_md: result.text,
+        themes: themes as unknown as Record<string, unknown>,
+        metrics: metrics as unknown as Record<string, unknown>,
+        generated_at: new Date(),
+        status: 'draft',
+      })
+      .returning({ id: schema.consolidations.id });
+    consolidation = row;
+  } catch {
+    // Condición de carrera: otra solicitud insertó primero (unique constraint en cycle_id)
+    const recovered = await db.query.consolidations.findFirst({
+      where: eq(schema.consolidations.cycle_id, cycleId),
+      columns: { id: true },
+    });
+    if (!recovered) throw new Error('consolidation insert failed and no existing row found');
+    consolidation = recovered;
+    logger.warn({ cycleId, consolidationId: recovered.id }, 'consolidation insert race condition — using existing');
+  }
 
   // Solo avanza el estado si el ciclo ya estaba cerrado (el cierre lo hace el job programado)
   if (cycle.status === 'closed') {
