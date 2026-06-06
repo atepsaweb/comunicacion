@@ -1,3 +1,10 @@
+// Página de revisión de publicaciones para el Secretario de Prensa (Julián).
+// Solo accesible con rol press_admin.
+// Muestra el consolidado semanal y todas las publicaciones generadas por la IA
+// listas para que Julián las revise, edite y apruebe antes de publicar.
+// También permite navegar semanas anteriores desde un selector de ciclos.
+export const dynamic = 'force-dynamic';
+
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { desc, inArray } from 'drizzle-orm';

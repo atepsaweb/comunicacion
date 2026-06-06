@@ -631,7 +631,7 @@ export function RevisionClient({
       )}
 
       {/* ── Reportes individuales ────────────────────────────────────────────── */}
-      {hasProcessed && (
+      {consolidation && (
         <Card className="print:hidden">
           <CardContent className="py-4 px-4 sm:px-5">
             <div className="flex items-center justify-between gap-4 flex-wrap">
