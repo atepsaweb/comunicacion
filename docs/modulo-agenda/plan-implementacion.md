@@ -2,7 +2,7 @@
 
 Nueve fases. Cada una autocontenida, con objetivo, deliverables, criterio de aceptación y dependencias. Pensado para sesiones con Sonnet.
 
-> **Estado**: **Fase A1 completada y deployada el 2026-06-07** (commit 30b2572). Schema, enums, migración 0004 (aplicada a la DB de producción), `lib/dates.ts` y seed de settings. Próxima: **A2** (botones interactivos de WhatsApp + templates Meta).
+> **Estado**: **Fase A2 completada y deployada el 2026-06-08** (commit 71871cd). `sendMetaInteractive` + `sendWhatsAppInteractive`, parseo de `button_reply` en inbound, `event_create`/`event_confirmation_reply` en classify-intent, endpoint stub `/api/internal/agenda/button-reply`, workflow n8n actualizado y activo. Próxima: **A3** (alta de eventos por WhatsApp: prompt `parse-event`, classify-intent routing en n8n, confirm-creation).
 
 **Regla de oro de cada fase**: cierra con `pnpm typecheck` y `pnpm lint` en verde. Cada PR que toque schema actualiza `docs/modulo-agenda/modelo-de-datos.md`; cada PR que toque workflows exporta el JSON y actualiza `workflows-n8n.md`.
 
