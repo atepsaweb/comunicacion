@@ -40,6 +40,10 @@ import {
   PARSE_ABSENCE_SYSTEM,
   PARSE_ABSENCE_MODEL,
 } from '../src/lib/ai/prompts/parse-absence.js';
+import {
+  PARSE_EVENT_SYSTEM,
+  PARSE_EVENT_MODEL,
+} from '../src/lib/ai/prompts/parse-event.js';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool, { schema });
@@ -100,6 +104,13 @@ const SEEDS = [
     system_prompt: PARSE_ABSENCE_SYSTEM,
     user_template: 'Fecha actual: {today}\nLunes de la semana actual: {weekMonday}\nDomingo de la semana actual: {weekSunday}\n\nMensaje del secretario:\n"{messageText}"',
     notes: 'Versión inicial desde código',
+  },
+  {
+    slug: 'parse-event',
+    model_hint: PARSE_EVENT_MODEL,
+    system_prompt: PARSE_EVENT_SYSTEM,
+    user_template: 'Hoy es {today} ({dayOfWeek}).\n\nMensaje del secretario:\n"{messageText}"',
+    notes: 'Versión inicial desde código — módulo Agenda A3',
   },
 ];
 
