@@ -56,7 +56,7 @@ export default async function RevisionPage({
   // Consolidación del ciclo seleccionado
   const consolidation = await db.query.consolidations.findFirst({
     where: (c, { eq }) => eq(c.cycle_id, cycle.id),
-    columns: { id: true, internal_summary_md: true, status: true, generated_at: true },
+    columns: { id: true, internal_summary_md: true, status: true, generated_at: true, verification_notes_md: true },
   });
 
   // Publicaciones del ciclo con versión actual
@@ -102,6 +102,7 @@ export default async function RevisionPage({
               summaryMd: consolidation.internal_summary_md,
               status: consolidation.status,
               generatedAt: consolidation.generated_at.toISOString(),
+              verificationNotes: consolidation.verification_notes_md ?? null,
             }
           : null
       }

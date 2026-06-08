@@ -71,6 +71,7 @@ type Consolidation = {
   summaryMd: string;
   status: string;
   generatedAt: string;
+  verificationNotes: string | null;
 };
 
 type Cycle = {
@@ -133,6 +134,12 @@ export function RevisionClient({
   );
   const [approvingConsolidation, setApprovingConsolidation] = useState(false);
 
+  // Estado verificación normativa
+  const [verificationNotes, setVerificationNotes] = useState(initialConsolidation?.verificationNotes ?? null);
+  const [verifying, setVerifying] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [showVerification, setShowVerification] = useState(!!initialConsolidation?.verificationNotes);
+
   // Estado ciclo
   const [cyclePublished, setCyclePublished] = useState(cycle.status === 'published');
   const [publishPending, setPublishPending] = useState(false);
@@ -193,6 +200,27 @@ export function RevisionClient({
       if (res.ok) setConsolidationApproved(true);
     } finally {
       setApprovingConsolidation(false);
+    }
+  }
+
+  async function handleVerifyLegal() {
+    if (!consolidation) return;
+    setVerifying(true);
+    setVerifyError(null);
+    try {
+      const res = await fetch(`/api/consolidations/${consolidation.id}/verify`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json() as { notes: string };
+        setVerificationNotes(data.notes);
+        setShowVerification(true);
+      } else {
+        const data = await res.json() as { error?: string };
+        setVerifyError(data.error ?? 'Error al verificar referencias.');
+      }
+    } catch {
+      setVerifyError('Error de red al verificar.');
+    } finally {
+      setVerifying(false);
     }
   }
 
@@ -434,6 +462,15 @@ export function RevisionClient({
                     >
                       🖨 Imprimir / PDF
                     </button>
+                    <button
+                      onClick={handleVerifyLegal}
+                      disabled={verifying}
+                      title="Busca en la web cada ley, decreto, resolución y CCT mencionados para verificar que el número y estado sean correctos"
+                      className="text-xs px-2.5 py-1 bg-white border border-zinc-300 text-zinc-700 rounded hover:bg-zinc-50 disabled:opacity-50 transition-colors"
+                    >
+                      {verifying ? 'Verificando…' : verificationNotes ? 'Re-verificar' : 'Verificar referencias'}
+                    </button>
+
                     {consolidationApproved ? (
                       <span className="text-xs text-green-700 font-medium px-2.5 py-1 bg-green-50 border border-green-200 rounded">
                         ✓ Aprobado
@@ -480,6 +517,34 @@ export function RevisionClient({
               <pre className="text-xs text-zinc-700 whitespace-pre-wrap font-sans leading-relaxed bg-zinc-50 rounded-md p-4 max-h-[600px] overflow-auto print:max-h-none print:overflow-visible print:bg-white print:p-0 print:text-sm">
                 {consolidation.summaryMd}
               </pre>
+            )}
+
+            {/* ── Verificación normativa ── */}
+            {verifyError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {verifyError}
+              </div>
+            )}
+            {verifying && (
+              <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                Buscando referencias en la web… esto puede tardar 30-60 segundos.
+              </div>
+            )}
+            {verificationNotes && (
+              <div className="border-t border-zinc-100 pt-3 space-y-2">
+                <button
+                  onClick={() => setShowVerification(v => !v)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-800 transition-colors"
+                >
+                  <span>{showVerification ? '▾' : '▸'}</span>
+                  Verificación de referencias normativas
+                </button>
+                {showVerification && (
+                  <pre className="text-xs text-zinc-700 whitespace-pre-wrap font-sans leading-relaxed bg-amber-50 border border-amber-100 rounded-md p-4 max-h-[400px] overflow-auto">
+                    {verificationNotes}
+                  </pre>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

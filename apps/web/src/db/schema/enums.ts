@@ -157,6 +157,7 @@ export const aiPurposeEnum = pgEnum('ai_purpose', [
   'assess_completeness',
   'followup_question',
   'consolidate',
+  'verify_legal',
   'draft_social',
   'draft_newsletter',
   'classify_intent',
