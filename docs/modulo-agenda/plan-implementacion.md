@@ -2,7 +2,7 @@
 
 Nueve fases. Cada una autocontenida, con objetivo, deliverables, criterio de aceptación y dependencias. Pensado para sesiones con Sonnet.
 
-> **Estado**: **Fase A2 completada y deployada el 2026-06-08** (commit 71871cd). `sendMetaInteractive` + `sendWhatsAppInteractive`, parseo de `button_reply` en inbound, `event_create`/`event_confirmation_reply` en classify-intent, endpoint stub `/api/internal/agenda/button-reply`, workflow n8n actualizado y activo. Próxima: **A3** (alta de eventos por WhatsApp: prompt `parse-event`, classify-intent routing en n8n, confirm-creation).
+> **Estado**: **Fase A3 completada y deployada el 2026-06-08** (commit 031212d). Prompt `parse-event` (Haiku), endpoints `parse-event` / `button-reply` (lógica real) / `confirm-creation` (fallback texto), seed del prompt en DB de producción, n8n actualizado con ramas `Es agenda?` → `Es evento nuevo?`. Próxima: **A4** (panel web: calendario + alta + detalle) o **A8** (feeds iCal, independiente).
 
 **Regla de oro de cada fase**: cierra con `pnpm typecheck` y `pnpm lint` en verde. Cada PR que toque schema actualiza `docs/modulo-agenda/modelo-de-datos.md`; cada PR que toque workflows exporta el JSON y actualiza `workflows-n8n.md`.
 
