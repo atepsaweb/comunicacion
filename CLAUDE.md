@@ -91,8 +91,9 @@ Todas estas se decidieron en la sesión inicial. El detalle está en [`docs/deci
 
 1. Leé este archivo entero.
 2. Mirá [`docs/plan-implementacion.md`](docs/plan-implementacion.md) para saber en qué fase estamos.
-3. Mirá los últimos commits (`git log --oneline -20`) para entender el estado actual.
-4. Preguntale a Julián qué tarea quiere atacar.
+3. Si la tarea es del **módulo Agenda** (eventos, convocatorias, recordatorios, iCal), leé [`docs/modulo-agenda/README.md`](docs/modulo-agenda/README.md) y su [`plan-implementacion.md`](docs/modulo-agenda/plan-implementacion.md). Es un módulo nuevo en planificación (arquitectura cerrada el 2026-06-07, sin código todavía).
+4. Mirá los últimos commits (`git log --oneline -20`) para entender el estado actual.
+5. Preguntale a Julián qué tarea quiere atacar.
 
 ### Cuando estés trabajando
 
@@ -133,3 +134,12 @@ Todas estas se decidieron en la sesión inicial. El detalle está en [`docs/deci
 - [docs/riesgos.md](docs/riesgos.md) — riesgos y mitigaciones.
 - [docs/decisiones.md](docs/decisiones.md) — ADRs.
 - [docs/glosario.md](docs/glosario.md) — jerga sindical y aeronáutica.
+
+### Módulo Agenda (en planificación)
+
+Módulo nuevo de agenda interna del Secretariado (eventos por WhatsApp, convocatorias con botones, recordatorios escalonados, feeds iCal, integración con el reporte semanal). Arquitectura cerrada el 2026-06-07; sin código aún. Toda la doc en `docs/modulo-agenda/`:
+
+- [docs/modulo-agenda/README.md](docs/modulo-agenda/README.md) — panorama + las 8 decisiones de arquitectura.
+- [docs/modulo-agenda/plan-implementacion.md](docs/modulo-agenda/plan-implementacion.md) — 9 fases (A1–A9), empezar por A1.
+- [docs/modulo-agenda/analisis-proyecto-existente.md](docs/modulo-agenda/analisis-proyecto-existente.md) — qué se reutiliza del sistema base.
+- [docs/modulo-agenda/modelo-de-datos.md](docs/modulo-agenda/modelo-de-datos.md), [workflows-n8n.md](docs/modulo-agenda/workflows-n8n.md), [prompts.md](docs/modulo-agenda/prompts.md), [endpoints-api.md](docs/modulo-agenda/endpoints-api.md), [componentes-ui.md](docs/modulo-agenda/componentes-ui.md), [riesgos.md](docs/modulo-agenda/riesgos.md).
