@@ -29,6 +29,13 @@
       "when": 1749139200000,
       "tag": "0003_source_message_id",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780790400000,
+      "tag": "0004_agenda_module",
+      "breakpoints": true
     }
   ]
 }

@@ -13,25 +13,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
-
-function getISOWeekAndYear(date: Date): { year: number; isoWeek: number } {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const isoWeek = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  return { year: d.getUTCFullYear(), isoWeek };
-}
-
-function isoWeekToMondayUTC(year: number, isoWeek: number): Date {
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const jan4Day = jan4.getUTCDay() || 7;
-  const week1Monday = new Date(jan4);
-  week1Monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
-  const monday = new Date(week1Monday);
-  monday.setUTCDate(week1Monday.getUTCDate() + (isoWeek - 1) * 7);
-  return monday;
-}
+import { getISOWeekAndYear, isoWeekToMondayUTC } from '@/lib/dates';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!validateInternalSecret(req)) {

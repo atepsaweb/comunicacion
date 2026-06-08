@@ -61,6 +61,8 @@ export const messageKindEnum = pgEnum('message_kind', [
 // - absence_request: avisa que no va a reportar esta semana
 // - weekly_pause: solicita pausa semanal
 // - greeting: saludo sin contenido de reporte ("Hola", "Buenas", "Cómo estás", etc.)
+// - event_create: el secretario quiere agendar un evento (módulo Agenda)
+// - event_confirmation_reply: responde a la confirmación de un evento pendiente (SÍ/NO/EDITAR en texto)
 // - unknown: no se pudo determinar la intención
 export const messageIntentEnum = pgEnum('message_intent', [
   'report',
@@ -68,6 +70,8 @@ export const messageIntentEnum = pgEnum('message_intent', [
   'absence_request',
   'weekly_pause',
   'greeting',
+  'event_create',
+  'event_confirmation_reply',
   'unknown',
 ]);
 
@@ -147,6 +151,7 @@ export const consolidationStatusEnum = pgEnum('consolidation_status', [
 // - consolidate: unificar todos los reportes en uno
 // - draft_social / draft_newsletter: redactar publicaciones
 // - classify_intent: determinar qué quiso decir el secretario
+// - parse_event: interpretar un evento descrito en lenguaje natural (módulo Agenda)
 export const aiPurposeEnum = pgEnum('ai_purpose', [
   'extract',
   'assess_completeness',
@@ -155,6 +160,7 @@ export const aiPurposeEnum = pgEnum('ai_purpose', [
   'draft_social',
   'draft_newsletter',
   'classify_intent',
+  'parse_event',
   'other',
 ]);
 
@@ -174,12 +180,20 @@ export const aiTriggeredByEnum = pgEnum('ai_triggered_by', [
 // - followup_question: pregunta de seguimiento generada por la IA
 // - consolidation_delivery: envío del consolidado aprobado
 // - admin_message: mensaje manual enviado por el administrador
+// - event_invitation: convocatoria a un evento (módulo Agenda)
+// - event_reminder: recordatorio escalonado de un evento (módulo Agenda)
+// - event_followup: pregunta "¿cómo salió?" al creador, el día después (módulo Agenda)
+// - event_proposal: aviso a Mesa Ejecutiva de una propuesta de evento a aprobar (módulo Agenda)
 export const outboundPurposeEnum = pgEnum('outbound_purpose', [
   'weekly_trigger',
   'reminder',
   'followup_question',
   'consolidation_delivery',
   'admin_message',
+  'event_invitation',
+  'event_reminder',
+  'event_followup',
+  'event_proposal',
   'other',
 ]);
 
@@ -189,4 +203,83 @@ export const deliveryStatusEnum = pgEnum('delivery_status', [
   'delivered',
   'read',
   'failed',
+]);
+
+// ─── Módulo Agenda ────────────────────────────────────────────────────────────
+
+// Tipo de evento de la agenda:
+// - personal: privado, solo lo ve el dueño, sin convocatoria
+// - secretariat: visible a todo el Secretariado, confirmación opcional
+// - mobilization: movilización / acción gremial, visible a todos + confirmación obligatoria
+export const eventTypeEnum = pgEnum('event_type', [
+  'personal',
+  'secretariat',
+  'mobilization',
+]);
+
+// Estado de un evento:
+// - pending_confirmation: la IA lo parseó y espera SÍ/NO/EDITAR del creador
+// - proposed: evento institucional propuesto por un secretario común, espera aprobación de Mesa Ejecutiva
+// - confirmed: activo
+// - cancelled: cancelado
+// - done: ya ocurrió (lo marca el cron post-evento)
+export const eventStatusEnum = pgEnum('event_status', [
+  'pending_confirmation',
+  'proposed',
+  'confirmed',
+  'cancelled',
+  'done',
+]);
+
+// Estado de un convocado respecto de un evento:
+// - invited: se le envió la convocatoria, sin responder aún
+// - going: confirmó asistencia (✅ Voy)
+// - not_going: no asiste (❌ No puedo)
+// - maybe: tal vez (🤔)
+// - no_response: cerró la ventana sin responder
+// - on_leave: estaba de licencia en la fecha (no se le convocó)
+export const attendeeStatusEnum = pgEnum('attendee_status', [
+  'invited',
+  'going',
+  'not_going',
+  'maybe',
+  'no_response',
+  'on_leave',
+]);
+
+// Tipo de notificación de evento que se programa/envía:
+// - invitation: convocatoria inicial
+// - reminder_7d / reminder_24h / reminder_12h / reminder_2h: recordatorios escalonados
+// - followup: "¿cómo salió?" al creador, el día después
+// - cancellation: aviso de cancelación o reprogramación (exento del tope de mensajes)
+export const eventNotificationKindEnum = pgEnum('event_notification_kind', [
+  'invitation',
+  'reminder_7d',
+  'reminder_24h',
+  'reminder_12h',
+  'reminder_2h',
+  'followup',
+  'cancellation',
+]);
+
+// Estado de una notificación de evento en la cola:
+// - pending: programada, aún no enviada
+// - sent: enviada
+// - skipped: no se envió (licencia, tope alcanzado, ya confirmó, silenciada, evento cancelado)
+// - failed: falló el envío
+export const eventNotificationStatusEnum = pgEnum('event_notification_status', [
+  'pending',
+  'sent',
+  'skipped',
+  'failed',
+]);
+
+// Alcance de un feed iCal de suscripción:
+// - all: todos los eventos visibles para el usuario
+// - secretariat: solo eventos del Secretariado y movilizaciones
+// - personal: solo los eventos personales del usuario
+export const icalScopeEnum = pgEnum('ical_scope', [
+  'all',
+  'secretariat',
+  'personal',
 ]);

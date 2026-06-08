@@ -12,3 +12,4 @@ export * from './access-tokens';
 export * from './affiliates';
 export * from './audit';
 export * from './settings';
+export * from './agenda';

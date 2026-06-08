@@ -11,29 +11,10 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
+import { getISOWeekAndYear, isoWeekToMondayUTC } from '@/lib/dates';
 
 // Diferencia en milisegundos entre UTC y hora argentina (ART = UTC-3)
 const ART_OFFSET_MS = 3 * 60 * 60 * 1000;
-
-function getISOWeekAndYear(date: Date): { year: number; isoWeek: number } {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const dayNum = d.getUTCDay() || 7; // 1=Mon..7=Sun
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum); // nearest Thursday
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const isoWeek = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-  return { year: d.getUTCFullYear(), isoWeek };
-}
-
-// Returns Monday 00:00 UTC of the given ISO week (used as base for calculations)
-function isoWeekToMondayUTC(year: number, isoWeek: number): Date {
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const jan4Day = jan4.getUTCDay() || 7;
-  const week1Monday = new Date(jan4);
-  week1Monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
-  const monday = new Date(week1Monday);
-  monday.setUTCDate(week1Monday.getUTCDate() + (isoWeek - 1) * 7);
-  return monday;
-}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!validateInternalSecret(req)) {
