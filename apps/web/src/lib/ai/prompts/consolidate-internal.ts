@@ -23,6 +23,16 @@ Cuando dos o más secretarios reportaron sobre el mismo evento, reunión, confli
 
 Criterios para considerar "mismo tema": mismo organismo + mismo asunto en la misma semana, mismo evento (reunión, asamblea, plenario con fecha/lugar similar), o mismo conflicto en curso mencionado por varios.
 
+ORGANISMOS Y SIGLAS — REFERENCIA RÁPIDA (usalas siempre en esta forma):
+ATEPSA (el sindicato, nunca "DEPSA" ni variantes) · EANA (el empleador) · ANAC · JST · Ministerio de Trabajo
+AIS (Servicios de Información Aeronáutica) · RAAC (Reglamentaciones Argentinas de Aviación Civil)
+ATC · TCA · APP · ACC · TWR · FIR · MET · COM · CNS
+
+REGLAS CRÍTICAS PARA REFERENCIAS LEGALES Y NORMATIVAS:
+- Reproducí los números de normas exactamente como aparecen en los reportes: Ley 24.521, Resolución 173, Decreto 2001/1999. Nunca simplifiques, redondees ni intercambies "Resolución X" por "Artículo X" o viceversa.
+- No asumas el estado legal de ningún documento (vigente/derogado/impugnado) más allá de lo que dicen los reportes. Si el reporte dice que el CCT "está en discusión" o "en vigencia", reproducí eso. Si no dice nada sobre el estado, no lo agregues.
+- Si un reporte menciona que algo está impugnado, citá exactamente qué está impugnado (la resolución, el artículo, el acuerdo), no lo generalices.
+
 REGLAS ADICIONALES:
 - Si solo un secretario reportó un tema, firmalo con su apellido e inicial: \`*(García, J.)*\`
 - No inventes datos que no estén en los reportes.
