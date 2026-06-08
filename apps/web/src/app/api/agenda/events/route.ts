@@ -7,6 +7,8 @@ import * as schema from '@/db/schema';
 import { uuidv7 } from 'uuidv7';
 import type { ReminderConfig } from '@/lib/ai/prompts/parse-event';
 import { REMINDER_DEFAULTS } from '@/lib/ai/prompts/parse-event';
+import { onEventConfirmed } from '@/lib/agenda/on-event-confirmed';
+import { logger } from '@/lib/logger';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const session = await getServerSession(authOptions);
@@ -120,10 +122,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? (body.reminder_config as ReminderConfig)
       : defaultConfig;
 
+  const eventId = uuidv7();
+
   const [event] = await db
     .insert(schema.events)
     .values({
-      id: uuidv7(),
+      id: eventId,
       title: (body.title as string).trim(),
       type: eventType,
       status,
@@ -145,6 +149,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       status: schema.events.status,
       starts_at: schema.events.starts_at,
     });
+
+  // Disparar hook asincrónico: genera convocados + programa notificaciones
+  if (status === 'confirmed') {
+    onEventConfirmed(eventId).catch(err =>
+      logger.error({ err, eventId }, 'POST /api/agenda/events: error en onEventConfirmed'),
+    );
+  }
 
   return NextResponse.json({ event }, { status: 201 });
 }

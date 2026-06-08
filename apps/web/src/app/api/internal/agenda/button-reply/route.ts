@@ -18,6 +18,7 @@ import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
+import { onEventConfirmed } from '@/lib/agenda/on-event-confirmed';
 
 type Body = { messageId: string };
 
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (action === 'confirm_event' || action === 'cancel_event' || action === 'edit_event') {
     const event = await db.query.events.findFirst({
       where: eq(schema.events.id, entityId),
-      columns: { id: true, status: true, created_by: true, title: true, starts_at: true, all_day: true },
+      columns: { id: true, status: true, created_by: true, title: true, starts_at: true, all_day: true, type: true },
     });
 
     if (!event) {
@@ -98,8 +99,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (action === 'confirm_event') {
-      // executive y press_admin confirman directamente; secretary propone para aprobación
-      const canConfirmDirectly = user.role === 'executive' || user.role === 'press_admin';
+      // Eventos personales siempre se confirman directamente.
+      // Para events institucionales: executive/press_admin confirman; secretary propone.
+      const canConfirmDirectly =
+        event.type === 'personal' ||
+        user.role === 'executive' ||
+        user.role === 'press_admin';
       const newStatus = canConfirmDirectly ? 'confirmed' : 'proposed';
 
       await db.update(schema.events).set({
@@ -116,6 +121,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await sendWhatsAppText(user.phone_e164, ackText).catch(err =>
         logger.warn({ err, userId: user.id }, 'confirm_event: fallo al enviar ack (no fatal)')
       );
+
+      if (newStatus === 'confirmed') {
+        onEventConfirmed(entityId).catch(err =>
+          logger.error({ err, eventId: entityId }, 'button-reply confirm_event: error en onEventConfirmed'),
+        );
+      }
 
       logger.info({ eventId: entityId, newStatus, userId: user.id }, 'button-reply: evento confirmado');
       await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
@@ -151,10 +162,49 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // ─── Acciones futuras (A5, A7) — stub ─────────────────────────────────────
 
   if (action === 'attend_yes' || action === 'attend_no' || action === 'attend_maybe') {
-    // TODO A5: updateAttendance(entityId, user.id, action)
-    logger.info({ messageId, userId: user.id, action, entityId }, 'button-reply: asistencia — pendiente de implementar en A5');
+    const statusMap = {
+      attend_yes:   'going',
+      attend_no:    'not_going',
+      attend_maybe: 'maybe',
+    } as const;
+    const newAttendeeStatus = statusMap[action];
+
+    const attendee = await db.query.eventAttendees.findFirst({
+      where: and(
+        eq(schema.eventAttendees.event_id, entityId),
+        eq(schema.eventAttendees.user_id, user.id),
+      ),
+      columns: { id: true, status: true },
+    });
+
+    if (!attendee) {
+      logger.warn({ userId: user.id, eventId: entityId, action }, 'button-reply: usuario no es convocado');
+      await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
+      return NextResponse.json({ received: true, action, note: 'no es convocado' });
+    }
+
+    if (attendee.status === 'on_leave') {
+      await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
+      return NextResponse.json({ received: true, action, note: 'on_leave' });
+    }
+
+    await db.update(schema.eventAttendees).set({
+      status: newAttendeeStatus,
+      responded_at: new Date(),
+      response_source: 'whatsapp',
+      updated_at: new Date(),
+    }).where(eq(schema.eventAttendees.id, attendee.id));
+
+    const ackMap = {
+      attend_yes:   '✅ Registré tu asistencia. ¡Hasta ahí!',
+      attend_no:    '❌ Entendido, anotado como "no puede asistir".',
+      attend_maybe: '🤔 Anotado como "tal vez". ¡Avisá si confirmás!',
+    };
+    await sendWhatsAppText(user.phone_e164, ackMap[action]).catch(() => undefined);
+
+    logger.info({ userId: user.id, eventId: entityId, newAttendeeStatus }, 'button-reply: asistencia registrada');
     await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
-    return NextResponse.json({ received: true, action, entityId, note: 'pendiente A5' });
+    return NextResponse.json({ received: true, action, newStatus: newAttendeeStatus });
   }
 
   if (action === 'approve_proposal' || action === 'reject_proposal') {

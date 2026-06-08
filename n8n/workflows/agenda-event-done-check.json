@@ -1,0 +1,81 @@
+{
+  "name": "agenda-event-done-check",
+  "active": true,
+  "nodes": [
+    {
+      "id": "node-schedule",
+      "name": "Cron diario 01:00 ART",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 4 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-manual",
+      "name": "Disparo manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 460],
+      "parameters": {}
+    },
+    {
+      "id": "node-done-check",
+      "name": "Marcar eventos finalizados",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 380],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXTJS_INTERNAL_URL }}/api/internal/agenda/events-done-check",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-secret",
+              "value": "={{ $env.INTERNAL_API_SECRET }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "node-log",
+      "name": "Log resultado",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [720, 380],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Cron diario 01:00 ART": {
+      "main": [[{ "node": "Marcar eventos finalizados", "type": "main", "index": 0 }]]
+    },
+    "Disparo manual": {
+      "main": [[{ "node": "Marcar eventos finalizados", "type": "main", "index": 0 }]]
+    },
+    "Marcar eventos finalizados": {
+      "main": [[{ "node": "Log resultado", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "timezone": "America/Argentina/Buenos_Aires",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "last"
+  }
+}

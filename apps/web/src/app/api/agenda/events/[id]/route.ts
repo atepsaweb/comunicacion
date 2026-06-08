@@ -5,6 +5,8 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import type { ReminderConfig } from '@/lib/ai/prompts/parse-event';
+import { onEventConfirmed } from '@/lib/agenda/on-event-confirmed';
+import { logger } from '@/lib/logger';
 
 export async function GET(
   _req: NextRequest,
@@ -110,7 +112,9 @@ export async function PATCH(
     updates.reminder_config = body.reminder_config as ReminderConfig;
   }
   // press_admin puede aprobar eventos propuestos
-  if (role === 'press_admin' && body.status === 'confirmed' && existing.status === 'proposed') {
+  const isApproving =
+    role === 'press_admin' && body.status === 'confirmed' && existing.status === 'proposed';
+  if (isApproving) {
     updates.status = 'confirmed';
     updates.approved_by = userId;
     updates.approved_at = new Date();
@@ -132,6 +136,13 @@ export async function PATCH(
       status: schema.events.status,
       starts_at: schema.events.starts_at,
     });
+
+  // Disparar hook cuando se aprueba una propuesta
+  if (isApproving) {
+    onEventConfirmed(params.id).catch(err =>
+      logger.error({ err, eventId: params.id }, 'PATCH /api/agenda/events/[id]: error en onEventConfirmed'),
+    );
+  }
 
   return NextResponse.json({ event: updated });
 }

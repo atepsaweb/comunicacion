@@ -2,7 +2,13 @@
 
 Nueve fases. Cada una autocontenida, con objetivo, deliverables, criterio de aceptación y dependencias. Pensado para sesiones con Sonnet.
 
-> **Estado**: **Fase A4 completada el 2026-06-08** (sin dependencias nuevas — calendario custom Tailwind sin react-big-calendar). API `GET/POST /api/agenda/events`, `PATCH /api/agenda/events/[id]`, `POST .../cancel`. Páginas `/agenda` (mes/lista), `/agenda/nuevo` (formulario), `/agenda/[id]` (detalle + cancelación). Sidebar actualizado. Próxima: **A5** (confirmación de asistencia) o **A8** (feeds iCal, independiente).
+> **Estado**: **Fases A4, A5 y A6 completadas el 2026-06-08**.
+>
+> **A4** (sin dependencias nuevas): calendario custom Tailwind, API CRUD de eventos, páginas `/agenda`, `/agenda/nuevo`, `/agenda/[id]`, sidebar actualizado.
+>
+> **A5+A6** (en una sola sesión): hook central `lib/agenda/on-event-confirmed.ts` (convocados + invitaciones + notificaciones); tablero de asistencia en `/agenda/[id]` con export XLSX; `POST .../attendance` (panel) y `attend_yes/no/maybe` (WhatsApp); `POST .../mark-done`; fix de eventos personales en confirm-creation y button-reply; dispatch horario `POST /api/internal/agenda/notifications/dispatch` con cap diario + prefs + licencia; cron diario `POST /api/internal/agenda/events-done-check`; endpoints `GET/PUT /api/agenda/notification-prefs`; workflows n8n `agenda-notifications-dispatch` y `agenda-event-done-check`.
+>
+> Próxima: **A7** (propuestas + aprobación por WhatsApp) o **A8** (feeds iCal, independiente).
 >
 > A3 completada y deployada el 2026-06-08 (commit 031212d).
 

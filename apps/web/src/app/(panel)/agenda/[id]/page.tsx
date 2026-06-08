@@ -1,11 +1,12 @@
 import { getServerSession } from 'next-auth';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { EventActions } from './event-actions';
+import { AttendeesBoard, type AttendeeRow } from './attendees-board';
 import type { ReminderConfig } from '@/lib/ai/prompts/parse-event';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -115,6 +116,38 @@ export default async function EventoDetailPage({ params }: PageProps) {
 
   if (!isOwner && !isAdminOrExec && !isPublic) notFound();
 
+  // Cargar convocados si es un evento grupal con tablero visible
+  const showAttendees =
+    (row.type === 'secretariat' || row.type === 'mobilization') &&
+    (row.status === 'confirmed' || row.status === 'done') &&
+    (isOwner || isAdminOrExec);
+
+  let attendees: AttendeeRow[] = [];
+  if (showAttendees) {
+    const rows = await db
+      .select({
+        id: schema.eventAttendees.id,
+        user_id: schema.eventAttendees.user_id,
+        status: schema.eventAttendees.status,
+        responded_at: schema.eventAttendees.responded_at,
+        response_source: schema.eventAttendees.response_source,
+        full_name: schema.users.full_name,
+        role: schema.users.role,
+        position: schema.users.position,
+      })
+      .from(schema.eventAttendees)
+      .leftJoin(schema.users, eq(schema.eventAttendees.user_id, schema.users.id))
+      .where(and(eq(schema.eventAttendees.event_id, params.id)))
+      .orderBy(schema.users.full_name);
+    // Serialize dates to ISO strings for client component
+    attendees = rows.map(r => ({
+      ...r,
+      full_name: r.full_name ?? null,
+      role: r.role ?? null,
+      responded_at: r.responded_at ? r.responded_at.toISOString() : null,
+    }));
+  }
+
   const canEdit = (isOwner || isAdmin) && row.status !== 'cancelled' && row.status !== 'done';
   const canCancel = (isOwner || isAdminOrExec) && row.status !== 'cancelled' && row.status !== 'done';
 
@@ -188,6 +221,19 @@ export default async function EventoDetailPage({ params }: PageProps) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Tablero de asistencia */}
+      {showAttendees && attendees.length > 0 && (
+        <div className="rounded-lg border border-zinc-200 bg-white p-4 space-y-3">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Asistencia</p>
+          <AttendeesBoard
+            eventId={row.id}
+            attendees={attendees}
+            currentUserId={userId}
+            canMarkOwn={role === 'secretary' || role === 'executive'}
+          />
         </div>
       )}
 

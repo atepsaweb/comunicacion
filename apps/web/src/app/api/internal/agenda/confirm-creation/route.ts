@@ -15,6 +15,7 @@ import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
+import { onEventConfirmed } from '@/lib/agenda/on-event-confirmed';
 
 type Body = { messageId: string };
 
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       eq(schema.events.created_by, user.id),
       eq(schema.events.status, 'pending_confirmation'),
     ),
-    columns: { id: true, title: true, starts_at: true, all_day: true },
+    columns: { id: true, title: true, starts_at: true, all_day: true, type: true },
     orderBy: [desc(schema.events.created_at)],
   });
 
@@ -106,7 +107,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   if (action === 'confirm') {
-    const canConfirmDirectly = user.role === 'executive' || user.role === 'press_admin';
+    // Eventos personales siempre se confirman directamente.
+    // Para eventos institucionales: executive/press_admin confirman; secretary propone.
+    const canConfirmDirectly =
+      pendingEvent.type === 'personal' ||
+      user.role === 'executive' ||
+      user.role === 'press_admin';
     const newStatus = canConfirmDirectly ? 'confirmed' : 'proposed';
 
     await db.update(schema.events).set({
@@ -121,6 +127,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : `📋 Propuesta enviada a la Mesa Ejecutiva. Te avisamos cuando esté aprobada.`;
 
     await sendWhatsAppText(user.phone_e164, ackText).catch(() => undefined);
+
+    if (newStatus === 'confirmed') {
+      onEventConfirmed(pendingEvent.id).catch(err =>
+        logger.error({ err, eventId: pendingEvent.id }, 'confirm-creation: error en onEventConfirmed'),
+      );
+    }
+
     await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
     return NextResponse.json({ eventId: pendingEvent.id, newStatus });
   }
