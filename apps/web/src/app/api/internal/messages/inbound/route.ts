@@ -50,6 +50,14 @@ type InboundEnvelope = {
       filename?: string | null;
     } | null;
     quotedMsg?: { id?: string; body?: string } | null;
+    // Botones de respuesta rápida (type === 'interactive')
+    interactive?: {
+      type: string;  // 'button_reply' cuando el usuario presionó un botón
+      button_reply?: {
+        id: string;    // Formato convencional: "<accion>:<entityId>"
+        title: string; // Texto del botón que se mostró al usuario
+      };
+    } | null;
   };
 };
 
@@ -63,6 +71,8 @@ function resolveKind(
   hasMedia?: boolean,
 ): 'text' | 'audio' | 'other' {
   if (waType === 'ptt' || waType === 'audio') return 'audio';
+  // Los botones de respuesta rápida llegan como type='interactive', se tratan como texto estructurado
+  if (waType === 'interactive') return 'text';
   if (!hasMedia && (waType === 'chat' || !waType)) return 'text';
   return 'other';
 }
@@ -161,6 +171,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ discarded: true, reason: 'numero_no_registrado', id: msg.id });
   }
 
+  // Detección de botones de respuesta rápida.
+  // El intent se puede determinar directamente sin pasar por la IA.
+  const isButtonReply =
+    payload.type === 'interactive' &&
+    payload.interactive?.type === 'button_reply' &&
+    typeof payload.interactive?.button_reply?.id === 'string';
+
+  const buttonPayloadId = isButtonReply
+    ? (payload.interactive?.button_reply?.id ?? null)
+    : null;
+
+  // text_content para button replies = el payload ID (la "acción estructurada" del mensaje).
+  // Para texto normal = el cuerpo del mensaje.
+  const resolvedTextContent =
+    kind === 'text'
+      ? (isButtonReply ? buttonPayloadId : (payload.body ?? null))
+      : null;
+
   const cycleSegment = cycle?.id ?? 'uncycled';
   let audioPath: string | null = null;
   let documentPath: string | null = null;
@@ -219,7 +247,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         cycle_id: cycle?.id ?? null,
         kind,
         mime_type: mimeType,
-        text_content: kind === 'text' ? (payload.body ?? null) : null,
+        text_content: resolvedTextContent,
+        // Para button replies el intent es determinístico: no hace falta la IA.
+        // Para el resto, la IA lo clasificará en un paso posterior.
+        intent: isButtonReply ? 'event_confirmation_reply' : undefined,
         audio_path: audioPath,
         document_path: documentPath,
         quoted_wamid: quotedWamid,
@@ -249,7 +280,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   logger.info(
-    { msgId: msg.id, userId: msg.user_id, kind: msg.kind, mimeType, fromPhone },
+    { msgId: msg.id, userId: msg.user_id, kind: msg.kind, mimeType, fromPhone, isButtonReply, buttonPayloadId },
     'inbound message persisted',
   );
 
@@ -285,5 +316,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     isUnsupported,
     isProcessableDoc,
     isProcessableImage,
+    // Flags para botones de respuesta rápida
+    isButtonReply,
+    buttonPayloadId,
   });
 }

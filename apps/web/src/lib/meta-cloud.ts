@@ -116,6 +116,61 @@ export async function sendMetaTemplate(
   });
 }
 
+// ─── Mensajes interactivos (botones de respuesta rápida) ─────────────────────
+
+export type InteractiveButton = {
+  /** Identificador de la acción. Formato convencional: "<accion>:<entityId>". Máx 256 chars. */
+  id: string;
+  /** Texto visible en el botón. Máx 20 chars (límite Meta). */
+  title: string;
+};
+
+/**
+ * Envía un mensaje con hasta 3 botones de respuesta rápida.
+ * Solo funciona dentro de la ventana de 24h del usuario.
+ * Para envíos proactivos (fuera de 24h) se necesita un template interactivo aprobado por Meta.
+ *
+ * @param bodyText  Cuerpo del mensaje (requerido).
+ * @param buttons   1–3 botones. Meta rechaza con más de 3.
+ * @param headerText Encabezado opcional (texto, máx 60 chars).
+ * @param footerText Pie opcional (texto, máx 60 chars).
+ */
+export async function sendMetaInteractive(
+  phoneE164: string,
+  bodyText: string,
+  buttons: InteractiveButton[],
+  headerText?: string,
+  footerText?: string,
+): Promise<string> {
+  if (buttons.length === 0 || buttons.length > 3) {
+    throw new Error(`sendMetaInteractive: se requieren 1–3 botones; recibidos ${buttons.length}`);
+  }
+
+  const interactive: Record<string, unknown> = {
+    type: 'button',
+    body: { text: bodyText },
+    action: {
+      buttons: buttons.map(b => ({
+        type: 'reply',
+        reply: { id: b.id, title: b.title },
+      })),
+    },
+  };
+
+  if (headerText) {
+    interactive.header = { type: 'text', text: headerText };
+  }
+  if (footerText) {
+    interactive.footer = { text: footerText };
+  }
+
+  return postMessage({
+    to: toMetaPhone(phoneE164),
+    type: 'interactive',
+    interactive,
+  });
+}
+
 /**
  * Resuelve la URL firmada de un media ID y la descarga a destPath.
  * Meta entrega media en dos pasos: GET /{media-id} → JSON con url; GET url → binary.

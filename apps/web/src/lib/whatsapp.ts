@@ -13,9 +13,13 @@ import * as schema from '@/db/schema';
 import {
   sendMetaText,
   sendMetaTemplate,
+  sendMetaInteractive,
   type TemplateComponent,
   type TemplateParam,
+  type InteractiveButton,
 } from './meta-cloud';
+
+export type { InteractiveButton };
 import { logger } from './logger';
 
 export type SendResult = {
@@ -27,6 +31,25 @@ export type SendResult = {
 export async function sendWhatsAppText(phoneE164: string, text: string): Promise<SendResult> {
   const id = await sendMetaText(phoneE164, text);
   logger.info({ phoneE164, providerMessageId: id }, 'whatsapp message sent');
+  return { provider: 'meta', providerMessageId: id };
+}
+
+/**
+ * Mensaje con botones de respuesta rápida (hasta 3).
+ * Requiere ventana de 24h activa. Para mensajes proactivos usar templates.
+ */
+export async function sendWhatsAppInteractive(
+  phoneE164: string,
+  bodyText: string,
+  buttons: InteractiveButton[],
+  headerText?: string,
+  footerText?: string,
+): Promise<SendResult> {
+  const id = await sendMetaInteractive(phoneE164, bodyText, buttons, headerText, footerText);
+  logger.info(
+    { phoneE164, buttonIds: buttons.map(b => b.id), providerMessageId: id },
+    'whatsapp interactive message sent',
+  );
   return { provider: 'meta', providerMessageId: id };
 }
 
