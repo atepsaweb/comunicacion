@@ -2,6 +2,8 @@
 
 Nueve fases. Cada una autocontenida, con objetivo, deliverables, criterio de aceptación y dependencias. Pensado para sesiones con Sonnet.
 
+> **Estado**: **Fase A1 completada y deployada el 2026-06-07** (commit 30b2572). Schema, enums, migración 0004 (aplicada a la DB de producción), `lib/dates.ts` y seed de settings. Próxima: **A2** (botones interactivos de WhatsApp + templates Meta).
+
 **Regla de oro de cada fase**: cierra con `pnpm typecheck` y `pnpm lint` en verde. Cada PR que toque schema actualiza `docs/modulo-agenda/modelo-de-datos.md`; cada PR que toque workflows exporta el JSON y actualiza `workflows-n8n.md`.
 
 ---
