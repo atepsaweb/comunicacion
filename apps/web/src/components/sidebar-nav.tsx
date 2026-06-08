@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useEffect } from 'react';
 import {
-  LayoutDashboard, FileText, CalendarOff, LogOut, Settings,
+  LayoutDashboard, FileText, CalendarOff, CalendarDays, LogOut, Settings,
   Users, BarChart2, TrendingUp, ShieldCheck, Activity,
   MessageSquare, BookOpen, X, Inbox,
 } from 'lucide-react';
@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { label: 'Mis mensajes',       href: '/mis-mensajes',               icon: FileText,       roles: ['secretary', 'executive', 'press_admin'] },
   { label: 'Mis reportes',       href: '/reportes',                   icon: FileText,       roles: ['secretary', 'executive', 'press_admin'] },
   { label: 'Ausencias',          href: '/ausencias',                  icon: CalendarOff },
+  { label: 'Agenda',             href: '/agenda',                     icon: CalendarDays },
   { label: 'Revisión',           href: '/revision',                   icon: FileText,       roles: ['press_admin'] },
   { label: 'Cumplimiento',       href: '/ejecutivo/cumplimiento',     icon: BarChart2,      roles: ['executive', 'press_admin'] },
   { label: 'Estadísticas',       href: '/ejecutivo/estadisticas',     icon: TrendingUp,     roles: ['executive', 'press_admin'] },

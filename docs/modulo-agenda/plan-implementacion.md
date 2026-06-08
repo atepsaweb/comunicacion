@@ -2,7 +2,9 @@
 
 Nueve fases. Cada una autocontenida, con objetivo, deliverables, criterio de aceptación y dependencias. Pensado para sesiones con Sonnet.
 
-> **Estado**: **Fase A3 completada y deployada el 2026-06-08** (commit 031212d). Prompt `parse-event` (Haiku), endpoints `parse-event` / `button-reply` (lógica real) / `confirm-creation` (fallback texto), seed del prompt en DB de producción, n8n actualizado con ramas `Es agenda?` → `Es evento nuevo?`. Próxima: **A4** (panel web: calendario + alta + detalle) o **A8** (feeds iCal, independiente).
+> **Estado**: **Fase A4 completada el 2026-06-08** (sin dependencias nuevas — calendario custom Tailwind sin react-big-calendar). API `GET/POST /api/agenda/events`, `PATCH /api/agenda/events/[id]`, `POST .../cancel`. Páginas `/agenda` (mes/lista), `/agenda/nuevo` (formulario), `/agenda/[id]` (detalle + cancelación). Sidebar actualizado. Próxima: **A5** (confirmación de asistencia) o **A8** (feeds iCal, independiente).
+>
+> A3 completada y deployada el 2026-06-08 (commit 031212d).
 
 **Regla de oro de cada fase**: cierra con `pnpm typecheck` y `pnpm lint` en verde. Cada PR que toque schema actualiza `docs/modulo-agenda/modelo-de-datos.md`; cada PR que toque workflows exporta el JSON y actualiza `workflows-n8n.md`.
 
