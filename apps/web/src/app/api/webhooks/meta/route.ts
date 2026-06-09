@@ -35,6 +35,14 @@ type MetaVoiceMessage = { type: 'voice'; voice: MetaMediaPayload };
 type MetaDocumentMessage = { type: 'document'; document: MetaMediaPayload };
 type MetaVideoMessage = { type: 'video'; video: MetaMediaPayload };
 type MetaStickerMessage = { type: 'sticker'; sticker: MetaMediaPayload };
+type MetaInteractiveMessage = {
+  type: 'interactive';
+  interactive: {
+    type: string;                                      // 'button_reply' | 'list_reply' | …
+    button_reply?: { id: string; title: string };      // respuesta a botón de respuesta rápida
+    list_reply?: { id: string; title: string; description?: string }; // respuesta a lista
+  };
+};
 type MetaOtherMessage = { type: string; [key: string]: unknown };
 
 type MetaMessage = (
@@ -45,6 +53,7 @@ type MetaMessage = (
   | MetaDocumentMessage
   | MetaVideoMessage
   | MetaStickerMessage
+  | MetaInteractiveMessage
   | MetaOtherMessage
 ) & {
   from: string;        // wa_id del remitente, formato E.164 sin '+'
@@ -164,33 +173,47 @@ function extractMedia(msg: MetaMessage): {
 
 /**
  * Convierte un MetaMessage al envelope que consume `/api/internal/messages/inbound`.
- * Convierte un MetaMessage al envelope que consume `/api/internal/messages/inbound`.
  * Incluye `provider: 'meta'` y `payload.media.mediaId` para la descarga de archivos.
+ * Para mensajes interactivos (botones), incluye `payload.interactive` con el button_reply
+ * para que el inbound route pueda detectar y enrutar la respuesta al botón correcto.
  */
 function buildInboundEnvelope(msg: MetaMessage): Record<string, unknown> {
   const m = extractMedia(msg);
 
+  const payloadFields: Record<string, unknown> = {
+    id: msg.id,
+    timestamp: Number(msg.timestamp),
+    from: msg.from, // E.164 sin '+' — el normalizador lo prefija
+    fromMe: false,
+    body: m.textBody ?? null,
+    hasMedia: m.hasMedia,
+    type: m.waType,
+    _data: { type: m.waType },
+    media: m.hasMedia
+      ? {
+          mediaId: m.mediaId,
+          mimetype: m.mimetype,
+          filename: m.filename ?? null,
+        }
+      : null,
+    quotedMsg: msg.context?.id ? { id: msg.context.id } : null,
+  };
+
+  // Mensajes interactivos (respuesta a botones): pasar el campo interactive completo.
+  // El inbound route usa payload.interactive.button_reply.id para detectar isButtonReply.
+  if (msg.type === 'interactive') {
+    const interactiveMsg = msg as MetaInteractiveMessage;
+    payloadFields.interactive = interactiveMsg.interactive;
+    // También poner el título del botón como body para legibilidad en logs
+    if (interactiveMsg.interactive.button_reply?.title) {
+      payloadFields.body = interactiveMsg.interactive.button_reply.title;
+    }
+  }
+
   return {
     event: 'message',
     provider: 'meta',
-    payload: {
-      id: msg.id,
-      timestamp: Number(msg.timestamp),
-      from: msg.from, // E.164 sin '+' — el normalizador lo prefija
-      fromMe: false,
-      body: m.textBody ?? null,
-      hasMedia: m.hasMedia,
-      type: m.waType,
-      _data: { type: m.waType },
-      media: m.hasMedia
-        ? {
-            mediaId: m.mediaId,
-            mimetype: m.mimetype,
-            filename: m.filename ?? null,
-          }
-        : null,
-      quotedMsg: msg.context?.id ? { id: msg.context.id } : null,
-    },
+    payload: payloadFields,
   };
 }
 
