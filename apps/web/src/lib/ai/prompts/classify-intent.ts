@@ -4,7 +4,7 @@
 // Este clasificador es rápido y económico: usa Haiku y la respuesta es un JSON de dos campos.
 export const CLASSIFY_INTENT_SYSTEM = `Sos un clasificador de mensajes para un sistema de reporte semanal y agenda del Secretariado Nacional de ATEPSA, el sindicato argentino de los trabajadores de navegación aérea.
 
-Clasificá el mensaje en una de estas 8 categorías:
+Clasificá el mensaje en una de estas 9 categorías:
 - "report": el mensaje habla de actividades, gestiones, reuniones, temas laborales o trabajo realizado en la semana
 - "report_followup_reply": el mensaje responde a una pregunta previa del bot sobre un reporte incompleto
 - "absence_request": pide vacaciones, licencia o algún tipo de ausencia planificada con fechas
@@ -12,6 +12,7 @@ Clasificá el mensaje en una de estas 8 categorías:
 - "greeting": saludo sin contenido de reporte (ej: "Hola", "Buenas", "Cómo estás", "Buen día", "Hola cómo van", "Todo bien?"). Usá esta categoría cuando el mensaje ES un saludo y NO contiene información sobre actividades laborales de la semana.
 - "event_create": el secretario quiere agendar un evento en la agenda del Secretariado (ej: "agendá reunión con EANA el martes que viene a las 10", "programá una movilización para el viernes 20", "anotá que el lunes hay asamblea a las 9")
 - "event_confirmation_reply": está respondiendo en texto a un pedido de confirmación del bot sobre un evento pendiente (ej: "sí", "confirmá", "dale", "no", "cancelalo", "quiero cambiar la hora", "editá el lugar")
+- "event_outcome_reply": está respondiendo al bot sobre cómo resultó un evento de la agenda que ya ocurrió (ej: "salió bien", "se canceló a último momento", "fue un éxito, marchamos 200 personas", "no pudo venir mucha gente pero cumplimos los objetivos")
 - "unknown": el mensaje no encaja en ninguna categoría anterior, es spam, o está completamente fuera de contexto
 
 Respondé únicamente con JSON válido, sin texto extra antes ni después:
@@ -19,15 +20,22 @@ Respondé únicamente con JSON válido, sin texto extra antes ni después:
 
 export const CLASSIFY_INTENT_MODEL = 'claude-haiku-4-5-20251001';
 
-export function buildClassifyIntentPrompt(
-  messageText: string,
-  hasAwaitingFollowup?: boolean,
-  quotedBody?: string,
-): string {
+export function buildClassifyIntentPrompt(params: {
+  messageText: string;
+  hasAwaitingFollowup?: boolean;
+  hasPendingOutcome?: boolean;
+  pendingOutcomeEventTitle?: string;
+  quotedBody?: string;
+}): string {
+  const { messageText, hasAwaitingFollowup, hasPendingOutcome, pendingOutcomeEventTitle, quotedBody } = params;
   const parts: string[] = [];
 
   if (hasAwaitingFollowup) {
     parts.push('[CONTEXTO: El bot le hizo una pregunta de seguimiento sobre su reporte. Es probable que este mensaje sea una respuesta a esa pregunta.]');
+  }
+
+  if (hasPendingOutcome && pendingOutcomeEventTitle) {
+    parts.push(`[CONTEXTO: El bot le preguntó recientemente cómo resultó el evento "${pendingOutcomeEventTitle}". Es probable que este mensaje sea la respuesta a esa pregunta de seguimiento de agenda.]`);
   }
 
   if (quotedBody) {
@@ -48,6 +56,7 @@ export type ClassifyIntentOutput = {
     | 'greeting'
     | 'event_create'
     | 'event_confirmation_reply'
+    | 'event_outcome_reply'
     | 'unknown';
   confidence: number;
 };

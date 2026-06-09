@@ -10,7 +10,9 @@ Nueve fases. Cada una autocontenida, con objetivo, deliverables, criterio de ace
 >
 > **A7+A8** (en una sola sesión): flujo completo de propuestas (`proposed` → aprobación/rechazo por panel y por WhatsApp); `lib/agenda/notify-proposal.ts`; `/agenda/propuestas` (bandeja); `POST .../reject`; `approve_proposal/reject_proposal` en button-reply; serializador iCal RFC 5545 en `lib/ical.ts`; feed público `GET /api/ical/[token]`; gestión de tokens en `/mi-calendario` + endpoints `GET/POST /api/agenda/ical-tokens` y `POST .../revoke`; sidebar actualizado con "Propuestas" y "Mi calendario".
 >
-> Próxima: **A9** (integración reporte semanal).
+> **A9** (en una sola sesión): integración agenda ↔ reporte semanal; `POST /api/internal/agenda/events/[id]/outcome` (guarda resultado del evento, extrae ítems al reporte del ciclo correspondiente vía `extract-report`); `GET /api/internal/agenda/user-week-events` (eventos de la semana por usuario); enriquecimiento de `send-trigger` con la lista de eventos agendados en la semana; `classify-intent` ampliado con intento `event_outcome_reply` + chequeo de followup pendiente + retorno de `pendingOutcomeEventId`; migración `0006_a9_outcome.sql`; `inbound-message-handle.json` actualizado con branch de outcome.
+>
+> **Módulo Agenda completo (A1–A9).**
 >
 > A3 completada y deployada el 2026-06-08 (commit 031212d).
 

@@ -63,6 +63,7 @@ export const messageKindEnum = pgEnum('message_kind', [
 // - greeting: saludo sin contenido de reporte ("Hola", "Buenas", "Cómo estás", etc.)
 // - event_create: el secretario quiere agendar un evento (módulo Agenda)
 // - event_confirmation_reply: responde a la confirmación de un evento pendiente (SÍ/NO/EDITAR en texto)
+// - event_outcome_reply: responde al "¿cómo salió?" de un evento ya ocurrido (módulo Agenda)
 // - unknown: no se pudo determinar la intención
 export const messageIntentEnum = pgEnum('message_intent', [
   'report',
@@ -72,6 +73,7 @@ export const messageIntentEnum = pgEnum('message_intent', [
   'greeting',
   'event_create',
   'event_confirmation_reply',
+  'event_outcome_reply',
   'unknown',
 ]);
 

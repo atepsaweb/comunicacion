@@ -1,3 +1,8 @@
+// Endpoint para clasificar la intención de un mensaje entrante.
+// n8n lo llama como primer paso al procesar cualquier mensaje.
+// Determina si el secretario está enviando un reporte, una respuesta a la pregunta del bot,
+// una solicitud de ausencia, o una pausa semanal.
+// La clasificación guía el resto del flujo de n8n (a qué endpoint llamar a continuación).
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { db } from '@/db';
@@ -80,6 +85,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     hasAwaitingFollowup = !!pendingReport;
   }
 
+  // Detectar si hay un followup de evento pendiente de respuesta (últimas 72h)
+  // para dar contexto al clasificador y potencialmente enrutar como event_outcome_reply.
+  let pendingOutcomeEventId: string | null = null;
+  let pendingOutcomeEventTitle: string | null = null;
+  if (msg.user_id) {
+    const since = new Date(Date.now() - 72 * 60 * 60 * 1000);
+    const sentFollowup = await db.query.eventNotifications.findFirst({
+      where: and(
+        eq(schema.eventNotifications.user_id, msg.user_id),
+        eq(schema.eventNotifications.kind, 'followup'),
+        eq(schema.eventNotifications.status, 'sent'),
+        // gte para filtrar solo notificaciones enviadas en las últimas 72h
+      ),
+      columns: { event_id: true, sent_at: true },
+      orderBy: [schema.eventNotifications.sent_at],
+    });
+    if (sentFollowup && sentFollowup.sent_at && sentFollowup.sent_at >= since) {
+      // Verificar que el evento no tenga outcome ya registrado
+      const ev = await db.query.events.findFirst({
+        where: eq(schema.events.id, sentFollowup.event_id),
+        columns: { id: true, title: true, outcome_md: true },
+      });
+      if (ev && !ev.outcome_md) {
+        pendingOutcomeEventId = ev.id;
+        pendingOutcomeEventTitle = ev.title;
+      }
+    }
+  }
+
   const dbPrompt = await getActivePrompt('classify-intent');
   const systemText = dbPrompt?.system_prompt ?? CLASSIFY_INTENT_SYSTEM;
 
@@ -87,7 +121,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     purpose: 'classify_intent',
     model: CLASSIFY_INTENT_MODEL,
     systemBlocks: [{ text: systemText, cache: true }],
-    userContent: buildClassifyIntentPrompt(text, hasAwaitingFollowup, msg.quoted_body ?? undefined),
+    userContent: buildClassifyIntentPrompt({
+      messageText: text,
+      hasAwaitingFollowup,
+      hasPendingOutcome: !!pendingOutcomeEventId,
+      pendingOutcomeEventTitle: pendingOutcomeEventTitle ?? undefined,
+      quotedBody: msg.quoted_body ?? undefined,
+    }),
     relatedCycleId: msg.cycle_id ?? undefined,
     promptId: dbPrompt?.id,
   });
@@ -106,9 +146,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .where(eq(schema.inboundMessages.id, messageId));
 
   logger.info(
-    { messageId, intent: parsed.intent, confidence: parsed.confidence, hasAwaitingFollowup, hasQuotedMsg: !!msg.quoted_body },
+    {
+      messageId,
+      intent: parsed.intent,
+      confidence: parsed.confidence,
+      hasAwaitingFollowup,
+      hasPendingOutcome: !!pendingOutcomeEventId,
+      hasQuotedMsg: !!msg.quoted_body,
+    },
     'intent classified',
   );
 
-  return NextResponse.json({ messageId, intent: parsed.intent, confidence: parsed.confidence });
+  return NextResponse.json({
+    messageId,
+    intent: parsed.intent,
+    confidence: parsed.confidence,
+    pendingOutcomeEventId: parsed.intent === 'event_outcome_reply' ? pendingOutcomeEventId : null,
+  });
 }

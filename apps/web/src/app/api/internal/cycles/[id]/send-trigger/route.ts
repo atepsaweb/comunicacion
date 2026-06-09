@@ -5,7 +5,7 @@
 //   - Si no reportó antes, envía el mensaje estándar
 // Esta personalización es la "memoria cross-week" que ayuda a los secretarios a dar seguimiento.
 import { NextRequest, NextResponse } from 'next/server';
-import { and, desc, eq, gte, inArray, lte, not } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, not, or } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
@@ -20,18 +20,57 @@ Contame brevemente qué hiciste esta semana: reuniones, gestiones, temas laboral
 
 Si esta semana no tenés novedades, respondé simplemente: "esta semana paso".`;
 
-/** Construye el mensaje del jueves con pendientes de la semana anterior si los hay */
-function buildTriggerMessage(previousItems: { title: string; category: string }[]): string {
-  if (previousItems.length === 0) return TRIGGER_BASE;
+/** Construye el mensaje del jueves con pendientes de la semana anterior y eventos agendados */
+function buildTriggerMessage(
+  previousItems: { title: string; category: string }[],
+  weekEvents: { title: string; type: string }[],
+): string {
+  let message = TRIGGER_BASE;
 
-  const itemList = previousItems
-    .slice(0, 5) // máximo 5 para no saturar el mensaje
-    .map(it => `  • ${it.title}`)
-    .join('\n');
+  if (weekEvents.length > 0) {
+    const eventList = weekEvents
+      .slice(0, 7) // máximo 7 para no saturar
+      .map(e => {
+        const label = e.type === 'mobilization' ? '🔴' : e.type === 'secretariat' ? '📋' : '📌';
+        return `  ${label} ${e.title}`;
+      })
+      .join('\n');
+    message += `\n\n_Esta semana tenías agendado:_\n${eventList}\n\nIncluí estos temas en tu reporte y contame cómo resultaron.`;
+  }
 
-  const pendingBlock = `\n\n_La semana pasada reportaste estos temas:_\n${itemList}\n\nSi hay novedades sobre alguno de ellos, incluílo en tu reporte de esta semana.`;
+  if (previousItems.length > 0) {
+    const itemList = previousItems
+      .slice(0, 5) // máximo 5 para no saturar el mensaje
+      .map(it => `  • ${it.title}`)
+      .join('\n');
+    message += `\n\n_La semana pasada reportaste estos temas:_\n${itemList}\n\nSi hay novedades sobre alguno de ellos, incluílo también.`;
+  }
 
-  return TRIGGER_BASE + pendingBlock;
+  return message;
+}
+
+/** Devuelve los eventos de la semana del ciclo relevantes para el usuario */
+async function getWeekEvents(
+  userId: string,
+  cycleStart: Date,
+  cycleEnd: Date,
+): Promise<{ title: string; type: string }[]> {
+  return db
+    .select({ title: schema.events.title, type: schema.events.type })
+    .from(schema.events)
+    .where(
+      and(
+        gte(schema.events.starts_at, cycleStart),
+        lte(schema.events.starts_at, cycleEnd),
+        inArray(schema.events.status, ['confirmed', 'done']),
+        or(
+          eq(schema.events.created_by, userId),
+          inArray(schema.events.type, ['secretariat', 'mobilization']),
+        ),
+      ),
+    )
+    .orderBy(schema.events.starts_at)
+    .limit(7);
 }
 
 /** Trae los ítems del reporte del ciclo anterior para un usuario dado */
@@ -110,8 +149,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     try {
       // Memoria cross-week: ítems del ciclo anterior personalizados por secretario
       const prevItems = await getPrevWeekItems(user.id, params.id);
-      const message = buildTriggerMessage(prevItems);
-      if (prevItems.length > 0) personalized++;
+      // Eventos agendados para esta semana (agenda + secretariado)
+      const weekEvents = await getWeekEvents(user.id, cycle.starts_at, cycleEndDt);
+      const message = buildTriggerMessage(prevItems, weekEvents);
+      if (prevItems.length > 0 || weekEvents.length > 0) personalized++;
 
       const result = await sendWhatsAppTemplate(
         user.phone_e164,
