@@ -208,10 +208,68 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   if (action === 'approve_proposal' || action === 'reject_proposal') {
-    // TODO A7: updateProposalStatus(entityId, user.id, action)
-    logger.info({ messageId, userId: user.id, action, entityId }, 'button-reply: propuesta — pendiente de implementar en A7');
+    if (user.role !== 'executive' && user.role !== 'press_admin') {
+      logger.warn({ userId: user.id, action }, 'button-reply: usuario sin permiso para gestionar propuestas');
+      await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
+      return NextResponse.json({ error: 'Sin permiso' }, { status: 403 });
+    }
+
+    const proposal = await db.query.events.findFirst({
+      where: eq(schema.events.id, entityId),
+      columns: { id: true, title: true, status: true, created_by: true, starts_at: true, all_day: true },
+    });
+
+    if (!proposal || proposal.status !== 'proposed') {
+      await sendWhatsAppText(user.phone_e164, 'Esa propuesta ya fue procesada o no existe.').catch(() => undefined);
+      await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
+      return NextResponse.json({ received: true, note: 'already processed or not found' });
+    }
+
+    const creator = await db.query.users.findFirst({
+      where: eq(schema.users.id, proposal.created_by),
+      columns: { phone_e164: true },
+    });
+
+    if (action === 'approve_proposal') {
+      await db.update(schema.events).set({
+        status: 'confirmed',
+        approved_by: user.id,
+        approved_at: new Date(),
+        updated_at: new Date(),
+      }).where(eq(schema.events.id, entityId));
+
+      await sendWhatsAppText(user.phone_e164, `✅ Propuesta aprobada: *${proposal.title}*.`).catch(() => undefined);
+
+      if (creator) {
+        const dateStr = formatDateShort(proposal.starts_at, proposal.all_day);
+        await sendWhatsAppText(creator.phone_e164, `✅ Tu propuesta *${proposal.title}* fue aprobada y agendada para el ${dateStr}.`).catch(() => undefined);
+      }
+
+      onEventConfirmed(entityId).catch(err =>
+        logger.error({ err, eventId: entityId }, 'button-reply approve_proposal: error en onEventConfirmed'),
+      );
+
+      logger.info({ eventId: entityId, approvedBy: user.id }, 'button-reply: propuesta aprobada');
+    } else {
+      await db.update(schema.events).set({
+        status: 'cancelled',
+        cancelled_by: user.id,
+        cancelled_at: new Date(),
+        cancellation_reason: 'Propuesta rechazada por la Mesa Ejecutiva.',
+        updated_at: new Date(),
+      }).where(eq(schema.events.id, entityId));
+
+      await sendWhatsAppText(user.phone_e164, `❌ Propuesta rechazada: *${proposal.title}*.`).catch(() => undefined);
+
+      if (creator) {
+        await sendWhatsAppText(creator.phone_e164, `❌ Tu propuesta para *${proposal.title}* fue rechazada por la Mesa Ejecutiva.`).catch(() => undefined);
+      }
+
+      logger.info({ eventId: entityId, rejectedBy: user.id }, 'button-reply: propuesta rechazada');
+    }
+
     await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
-    return NextResponse.json({ received: true, action, entityId, note: 'pendiente A7' });
+    return NextResponse.json({ received: true, action, eventId: entityId });
   }
 
   // Acción desconocida

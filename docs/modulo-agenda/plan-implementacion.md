@@ -2,13 +2,15 @@
 
 Nueve fases. Cada una autocontenida, con objetivo, deliverables, criterio de aceptación y dependencias. Pensado para sesiones con Sonnet.
 
-> **Estado**: **Fases A4, A5 y A6 completadas el 2026-06-08**.
+> **Estado**: **Fases A4, A5, A6, A7 y A8 completadas el 2026-06-08**.
 >
 > **A4** (sin dependencias nuevas): calendario custom Tailwind, API CRUD de eventos, páginas `/agenda`, `/agenda/nuevo`, `/agenda/[id]`, sidebar actualizado.
 >
 > **A5+A6** (en una sola sesión): hook central `lib/agenda/on-event-confirmed.ts` (convocados + invitaciones + notificaciones); tablero de asistencia en `/agenda/[id]` con export XLSX; `POST .../attendance` (panel) y `attend_yes/no/maybe` (WhatsApp); `POST .../mark-done`; fix de eventos personales en confirm-creation y button-reply; dispatch horario `POST /api/internal/agenda/notifications/dispatch` con cap diario + prefs + licencia; cron diario `POST /api/internal/agenda/events-done-check`; endpoints `GET/PUT /api/agenda/notification-prefs`; workflows n8n `agenda-notifications-dispatch` y `agenda-event-done-check`.
 >
-> Próxima: **A7** (propuestas + aprobación por WhatsApp) o **A8** (feeds iCal, independiente).
+> **A7+A8** (en una sola sesión): flujo completo de propuestas (`proposed` → aprobación/rechazo por panel y por WhatsApp); `lib/agenda/notify-proposal.ts`; `/agenda/propuestas` (bandeja); `POST .../reject`; `approve_proposal/reject_proposal` en button-reply; serializador iCal RFC 5545 en `lib/ical.ts`; feed público `GET /api/ical/[token]`; gestión de tokens en `/mi-calendario` + endpoints `GET/POST /api/agenda/ical-tokens` y `POST .../revoke`; sidebar actualizado con "Propuestas" y "Mi calendario".
+>
+> Próxima: **A9** (integración reporte semanal).
 >
 > A3 completada y deployada el 2026-06-08 (commit 031212d).
 

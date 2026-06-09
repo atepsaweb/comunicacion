@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 import {
   LayoutDashboard, FileText, CalendarOff, CalendarDays, LogOut, Settings,
   Users, BarChart2, TrendingUp, ShieldCheck, Activity,
-  MessageSquare, BookOpen, X, Inbox,
+  MessageSquare, BookOpen, X, Inbox, ClipboardList, CalendarCheck2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +29,8 @@ const navItems: NavItem[] = [
   { label: 'Mis reportes',       href: '/reportes',                   icon: FileText,       roles: ['secretary', 'executive', 'press_admin'] },
   { label: 'Ausencias',          href: '/ausencias',                  icon: CalendarOff },
   { label: 'Agenda',             href: '/agenda',                     icon: CalendarDays },
+  { label: 'Propuestas',        href: '/agenda/propuestas',          icon: ClipboardList,  roles: ['executive', 'press_admin'] },
+  { label: 'Mi calendario',     href: '/mi-calendario',              icon: CalendarCheck2 },
   { label: 'Revisión',           href: '/revision',                   icon: FileText,       roles: ['press_admin'] },
   { label: 'Cumplimiento',       href: '/ejecutivo/cumplimiento',     icon: BarChart2,      roles: ['executive', 'press_admin'] },
   { label: 'Estadísticas',       href: '/ejecutivo/estadisticas',     icon: TrendingUp,     roles: ['executive', 'press_admin'] },
