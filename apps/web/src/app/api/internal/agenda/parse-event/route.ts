@@ -164,7 +164,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? `Para agendar *${parsed.title}*`
       : 'Para agendar el evento';
     const clarification = `${titleHint}, necesito la fecha y la hora.\n\nEjemplo: "Reunión con EANA el martes 17 a las 10".`;
-    await sendWhatsAppText(user.phone_e164, clarification);
+    const sendResult = await sendWhatsAppText(user.phone_e164, clarification);
+
+    // Guardar en outbound_messages con purpose='event_clarification'.
+    // classify-intent lee esto para saber que la próxima respuesta del usuario
+    // es una continuación del alta de evento, no un reporte.
+    await db.insert(schema.outboundMessages).values({
+      provider: sendResult.provider,
+      provider_message_id: sendResult.providerMessageId,
+      to_phone_e164: user.phone_e164,
+      user_id: user.id,
+      cycle_id: message.cycle_id ?? null,
+      purpose: 'event_clarification',
+      body: clarification,
+      sent_at: new Date(),
+      delivery_status: 'sent',
+    });
+
     await db.update(schema.inboundMessages)
       .set({ processed_at: new Date() })
       .where(eq(schema.inboundMessages.id, messageId));

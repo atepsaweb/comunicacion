@@ -197,6 +197,7 @@ export const outboundPurposeEnum = pgEnum('outbound_purpose', [
   'event_reminder',
   'event_followup',
   'event_proposal',
+  'event_clarification', // bot pide fecha/hora para completar alta de evento por WhatsApp
   'other',
 ]);
 

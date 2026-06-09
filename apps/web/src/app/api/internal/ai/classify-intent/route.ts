@@ -4,7 +4,7 @@
 // una solicitud de ausencia, o una pausa semanal.
 // La clasificación guía el resto del flujo de n8n (a qué endpoint llamar a continuación).
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, gte, desc } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
@@ -92,6 +92,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         'intent classified (fast-path agenda verb)',
       );
       return NextResponse.json({ messageId, intent: 'event_create', confidence: 0.95, pendingOutcomeEventId: null });
+    }
+  }
+
+  // Fast-path 2: si el bot le preguntó recientemente fecha/hora para un evento
+  // (purpose='event_clarification' en los últimos 30 min), la respuesta del usuario
+  // es la continuación del alta de evento — no un reporte.
+  if (msg.user_id) {
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+    const pendingClarification = await db.query.outboundMessages.findFirst({
+      where: and(
+        eq(schema.outboundMessages.user_id, msg.user_id),
+        eq(schema.outboundMessages.purpose, 'event_clarification'),
+        gte(schema.outboundMessages.sent_at, thirtyMinAgo),
+      ),
+      columns: { id: true },
+      orderBy: [desc(schema.outboundMessages.sent_at)],
+    });
+    if (pendingClarification) {
+      await db
+        .update(schema.inboundMessages)
+        .set({ intent: 'event_create' })
+        .where(eq(schema.inboundMessages.id, messageId));
+      logger.info(
+        { messageId, intent: 'event_create', confidence: 0.92, fastPath: 'event_clarification' },
+        'intent classified (fast-path: pending event clarification)',
+      );
+      return NextResponse.json({ messageId, intent: 'event_create', confidence: 0.92, pendingOutcomeEventId: null });
     }
   }
 
