@@ -159,7 +159,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Si la confianza es baja o falta la fecha → pedir aclaración
   if (parsed.confidence < 0.6 || !parsed.starts_at) {
-    const clarification = '¿Podés contarme el evento con más detalle? Necesito al menos el título, la fecha y la hora.';
+    // Construir un mensaje contextual: si se extrajo un título, úsalo
+    const titleHint = parsed.title && parsed.confidence >= 0.4
+      ? `Para agendar *${parsed.title}*`
+      : 'Para agendar el evento';
+    const clarification = `${titleHint}, necesito la fecha y la hora.\n\nEjemplo: "Reunión con EANA el martes 17 a las 10".`;
     await sendWhatsAppText(user.phone_e164, clarification);
     await db.update(schema.inboundMessages)
       .set({ processed_at: new Date() })

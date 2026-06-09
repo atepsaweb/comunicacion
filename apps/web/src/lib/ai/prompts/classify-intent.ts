@@ -10,7 +10,7 @@ Clasificá el mensaje en una de estas 9 categorías:
 - "absence_request": pide vacaciones, licencia o algún tipo de ausencia planificada con fechas
 - "weekly_pause": dice que esta semana no va a reportar (ej: "esta semana paso", "no puedo esta semana", "sin novedades")
 - "greeting": saludo sin contenido de reporte (ej: "Hola", "Buenas", "Cómo estás", "Buen día", "Hola cómo van", "Todo bien?"). Usá esta categoría cuando el mensaje ES un saludo y NO contiene información sobre actividades laborales de la semana.
-- "event_create": el secretario quiere agendar un evento en la agenda del Secretariado (ej: "agendá reunión con EANA el martes que viene a las 10", "programá una movilización para el viernes 20", "anotá que el lunes hay asamblea a las 9")
+- "event_create": el secretario quiere agendar algo — en cualquier forma gramatical y aunque falte la fecha. Formas válidas: imperativas ("agendá reunión con EANA el martes a las 10", "programá una movilización para el viernes"), interrogativas ("¿Podés agendar una reunión?", "¿Me agendás algo para el jueves?", "¿Podés programar una reunión?"), afirmativas ("quiero agendar una reunión", "necesito programar una reunión con EANA", "quiero que me agendes la reunión"). La presencia de palabras como "agendar", "agenda", "reunión", "asamblea", "movilización", "programar", "anotá que" orientan fuertemente a este intent aunque no haya fecha ni detalles — el sistema pedirá los datos faltantes.
 - "event_confirmation_reply": está respondiendo en texto a un pedido de confirmación del bot sobre un evento pendiente (ej: "sí", "confirmá", "dale", "no", "cancelalo", "quiero cambiar la hora", "editá el lugar")
 - "event_outcome_reply": está respondiendo al bot sobre cómo resultó un evento de la agenda que ya ocurrió (ej: "salió bien", "se canceló a último momento", "fue un éxito, marchamos 200 personas", "no pudo venir mucha gente pero cumplimos los objetivos")
 - "unknown": el mensaje no encaja en ninguna categoría anterior, es spam, o está completamente fuera de contexto
@@ -31,7 +31,7 @@ export function buildClassifyIntentPrompt(params: {
   const parts: string[] = [];
 
   if (hasAwaitingFollowup) {
-    parts.push('[CONTEXTO: El bot le hizo una pregunta de seguimiento sobre su reporte. Es probable que este mensaje sea una respuesta a esa pregunta.]');
+    parts.push('[CONTEXTO: El bot le hizo una pregunta de seguimiento sobre su reporte. Si el mensaje responde a esa pregunta, usá "report_followup_reply". EXCEPCIÓN: si el mensaje claramente quiere agendar algo (menciona "agendar", "reunión", "asamblea", "movilización", "programar" con intención futura), usá "event_create" igualmente — la agenda tiene prioridad sobre el estado de followup del reporte.]');
   }
 
   if (hasPendingOutcome && pendingOutcomeEventTitle) {
