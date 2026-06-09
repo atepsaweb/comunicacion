@@ -71,6 +71,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'No text to classify' }, { status: 422 });
   }
 
+  // Fast-path determinístico: si el texto contiene el verbo "agendar" o "programar"
+  // en cualquier forma, clasificamos directo como event_create sin llamar a la IA.
+  // Esto evita que el estado hasAwaitingFollowup del reporte enmascare la intención
+  // clara de agendar un evento.
+  {
+    const textNorm = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const isAgendaVerb =
+      /\bagendar/.test(textNorm)     // agendar, agendarme, agendarte, agendarnos...
+      || /\bagendame\b/.test(textNorm) // agendame (imperativo coloquial)
+      || /\bprogramar\b/.test(textNorm); // programar una reunión
+
+    if (isAgendaVerb) {
+      await db
+        .update(schema.inboundMessages)
+        .set({ intent: 'event_create' })
+        .where(eq(schema.inboundMessages.id, messageId));
+      logger.info(
+        { messageId, intent: 'event_create', confidence: 0.95, fastPath: true },
+        'intent classified (fast-path agenda verb)',
+      );
+      return NextResponse.json({ messageId, intent: 'event_create', confidence: 0.95, pendingOutcomeEventId: null });
+    }
+  }
+
   // Detectar si hay un reporte awaiting_followup para este usuario/ciclo
   let hasAwaitingFollowup = false;
   if (msg.user_id && msg.cycle_id) {
