@@ -12,7 +12,7 @@
 //
 // Errores de WhatsApp (externos) se capturan y loguean: no son fatales.
 // Errores de DB burbujean: el llamador debe manejarlos si necesita.
-import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNull, ne } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
@@ -168,7 +168,7 @@ export async function inviteMentionedAttendees(event: EventRow, onlyUserIds?: st
         .where(eq(schema.eventAttendees.id, a.attendee_id));
       continue;
     }
-    await sendInvitation(event, a.phone_e164, dateStr, locationLine, typeLabel);
+    await sendInvitation(event, a.phone_e164, a.user_id, dateStr, locationLine, typeLabel);
     sentCount++;
   }
 
@@ -176,6 +176,19 @@ export async function inviteMentionedAttendees(event: EventRow, onlyUserIds?: st
     { eventId: event.id, attendees: attendees.length, sent: sentCount },
     'onEventConfirmed: invitaciones enviadas a convocados',
   );
+}
+
+/** Verifica si el usuario tiene la ventana de servicio de 24h abierta (envió algo al bot en las últimas 24h). */
+async function isInServiceWindow(userId: string): Promise<boolean> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const recent = await db.query.inboundMessages.findFirst({
+    where: and(
+      eq(schema.inboundMessages.user_id, userId),
+      gte(schema.inboundMessages.received_at, since),
+    ),
+    columns: { id: true },
+  });
+  return !!recent;
 }
 
 // ─── Aviso informativo a Prensa (press_admin) ─────────────────────────────────
@@ -226,30 +239,37 @@ async function notifyPressAdmins(event: EventRow): Promise<void> {
 async function sendInvitation(
   event: EventRow,
   phoneE164: string,
+  userId: string,
   dateStr: string,
   locationLine: string,
   typeLabel: string,
 ): Promise<void> {
   const bodyText = `📢 *${typeLabel}*\n\n*${event.title}*\n📅 ${dateStr}${locationLine}`;
+  const templateVars = { title: event.title, date: dateStr, location: event.location ?? '' };
 
   if (event.requires_confirmation) {
-    const buttons: InteractiveButton[] = [
-      { id: `attend_yes:${event.id}`, title: '✅ Voy' },
-      { id: `attend_no:${event.id}`, title: '❌ No puedo' },
-      { id: `attend_maybe:${event.id}`, title: '🤔 Tal vez' },
-    ];
-    await sendWhatsAppInteractive(phoneE164, bodyText, buttons).catch(err =>
-      logger.warn({ err, eventId: event.id, phoneE164 }, 'onEventConfirmed: fallo al enviar invitación interactiva (no fatal)'),
-    );
+    const inWindow = await isInServiceWindow(userId);
+    if (inWindow) {
+      // Ventana 24h abierta: mensajes interactivos con botones
+      const buttons: InteractiveButton[] = [
+        { id: `attend_yes:${event.id}`, title: '✅ Voy' },
+        { id: `attend_no:${event.id}`, title: '❌ No puedo' },
+        { id: `attend_maybe:${event.id}`, title: '🤔 Tal vez' },
+      ];
+      await sendWhatsAppInteractive(phoneE164, bodyText, buttons).catch(err =>
+        logger.warn({ err, eventId: event.id, phoneE164 }, 'sendInvitation: fallo interactivo (no fatal)'),
+      );
+    } else {
+      // Fuera de ventana: usar template aprobado (no requiere 24h)
+      const fallback = `${bodyText}\n\n_Para confirmar asistencia, respondé ✅ Voy, ❌ No puedo o 🤔 Tal vez._`;
+      await sendWhatsAppTemplate(phoneE164, 'agenda_invitation', templateVars, fallback).catch(err =>
+        logger.warn({ err, eventId: event.id, phoneE164 }, 'sendInvitation: fallo template (no fatal)'),
+      );
+    }
   } else {
     const fallback = `${bodyText}\n\n_Informativo. No requiere confirmación de asistencia._`;
-    await sendWhatsAppTemplate(
-      phoneE164,
-      'agenda_invitation',
-      { title: event.title, date: dateStr, location: event.location ?? '' },
-      fallback,
-    ).catch(err =>
-      logger.warn({ err, eventId: event.id, phoneE164 }, 'onEventConfirmed: fallo al enviar invitación (no fatal)'),
+    await sendWhatsAppTemplate(phoneE164, 'agenda_invitation', templateVars, fallback).catch(err =>
+      logger.warn({ err, eventId: event.id, phoneE164 }, 'sendInvitation: fallo template informativo (no fatal)'),
     );
   }
 }
