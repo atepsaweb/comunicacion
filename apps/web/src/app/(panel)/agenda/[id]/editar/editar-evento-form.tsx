@@ -195,13 +195,22 @@ export function EditarEventoForm({ eventId, eventType, initial }: Props) {
               )}
             </div>
 
-            {/* Lugar */}
+            {/* Lugar / Link */}
             <div className="space-y-1">
-              <Label htmlFor="ev-location">Lugar (opcional)</Label>
+              <Label htmlFor="ev-location">
+                {eventType === 'secretariat' ? 'Link de acceso (opcional)' : 'Lugar (opcional)'}
+              </Label>
               <Input
                 id="ev-location"
                 value={location}
                 onChange={e => setLocation(e.target.value)}
+                placeholder={
+                  eventType === 'secretariat'
+                    ? 'https://zoom.us/j/... o meet.google.com/...'
+                    : eventType === 'mobilization'
+                      ? 'Ej: Edificio EANA, Av. Costanera...'
+                      : 'Ej: Aeroparque, oficina...'
+                }
                 maxLength={200}
               />
             </div>

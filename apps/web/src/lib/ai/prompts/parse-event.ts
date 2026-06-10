@@ -34,6 +34,12 @@ REGLAS DE requires_confirmation:
 - true para secretariat y mobilization (involucra a más de una persona)
 - false para personal
 
+REGLAS DE LOCATION:
+- Para eventos online/secretariat: si se menciona un link o plataforma (Zoom, Meet, Teams, WebEx, etc.) o se pega una URL, poner la URL o nombre de plataforma en "location"
+- Para eventos presenciales/mobilization: el nombre del lugar o dirección física va en "location"
+- Si el link es solo una URL sin texto extra, ponerla tal como está en "location"
+- Si no se menciona lugar ni link → null
+
 REGLAS DE mentioned_attendees:
 - Detectá personas que acompañan o participan: "voy con Matías y Juan Pablo", "con Pérez", "vamos con la comisión de...", "me acompaña X"
 - Incluí cada nombre tal como aparece en el mensaje (no inventes apellidos ni completes nombres)

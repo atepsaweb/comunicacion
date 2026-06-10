@@ -223,14 +223,22 @@ export function NuevoEventoForm({ role }: Props) {
               )}
             </div>
 
-            {/* Lugar */}
+            {/* Lugar / Link */}
             <div className="space-y-1">
-              <Label htmlFor="ev-location">Lugar (opcional)</Label>
+              <Label htmlFor="ev-location">
+                {type === 'secretariat' ? 'Link de acceso (opcional)' : 'Lugar (opcional)'}
+              </Label>
               <Input
                 id="ev-location"
                 value={location}
                 onChange={e => setLocation(e.target.value)}
-                placeholder="Ej: Sala de reuniones EANA, Aeroparque..."
+                placeholder={
+                  type === 'secretariat'
+                    ? 'https://zoom.us/j/... o meet.google.com/...'
+                    : type === 'mobilization'
+                      ? 'Ej: Edificio EANA, Av. Costanera...'
+                      : 'Ej: Aeroparque, oficina...'
+                }
                 maxLength={200}
               />
             </div>

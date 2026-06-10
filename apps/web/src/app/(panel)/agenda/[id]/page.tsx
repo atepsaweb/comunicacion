@@ -192,7 +192,13 @@ export default async function EventoDetailPage({ params }: PageProps) {
       <div className="rounded-lg border border-zinc-200 bg-white divide-y divide-zinc-100">
         <InfoRow label="Inicio" value={dateStr} />
         {endStr && <InfoRow label="Fin" value={endStr} />}
-        {row.location && <InfoRow label="Lugar" value={row.location} />}
+        {row.location && (
+          <InfoRow
+            label={row.type === 'secretariat' ? 'Link' : 'Lugar'}
+            value={row.location}
+            href={row.location.startsWith('http') ? row.location : undefined}
+          />
+        )}
         <InfoRow label="Creado por" value={row.creator_name ?? '—'} />
         <InfoRow
           label="Creado el"
@@ -266,11 +272,22 @@ export default async function EventoDetailPage({ params }: PageProps) {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, href }: { label: string; value: string; href?: string }) {
   return (
     <div className="flex gap-4 px-4 py-3">
       <span className="text-sm text-zinc-400 w-24 shrink-0">{label}</span>
-      <span className="text-sm text-zinc-800 capitalize-first">{value}</span>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-600 hover:underline break-all"
+        >
+          {value}
+        </a>
+      ) : (
+        <span className="text-sm text-zinc-800">{value}</span>
+      )}
     </div>
   );
 }
