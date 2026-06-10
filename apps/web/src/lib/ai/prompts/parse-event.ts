@@ -16,7 +16,7 @@ ESQUEMA DE SALIDA:
   "starts_at": "ISO 8601 con offset -03:00, ej: '2026-06-10T10:00:00-03:00', o null si no se puede determinar",
   "ends_at": "ISO 8601 con offset -03:00 o null",
   "all_day": true o false,
-  "location": "lugar en texto libre o null",
+  "location": "para tipo 'secretariat': URL completa de la videollamada (https://...) si aparece en el mensaje, o nombre de plataforma si no hay URL. Para 'mobilization': lugar físico o dirección. Para 'personal': lugar opcional. null si no se menciona.",
   "description_md": "descripción adicional relevante en markdown o null (omitir info ya capturada en otros campos)",
   "requires_confirmation": true o false,
   "mentioned_attendees": ["nombres de personas que el mensaje dice que van/participan, tal como aparecen"],
@@ -35,10 +35,12 @@ REGLAS DE requires_confirmation:
 - false para personal
 
 REGLAS DE LOCATION:
-- Para eventos online/secretariat: si el mensaje contiene una URL (empieza con http:// o https://), poner ESA URL en "location". Si hay varias URLs, elegir la del enlace de la reunión (zoom.us, meet.google.com, teams.microsoft.com, webex, etc.). Si no hay URL pero hay mención a una plataforma, poner el nombre de la plataforma (ej: "Zoom").
-- Para eventos presenciales/mobilization: el nombre del lugar o dirección física va en "location".
-- IMPORTANTE: si hay una URL, siempre preferir la URL completa sobre el solo nombre de la plataforma.
-- Si no se menciona lugar ni link → null
+- Si el mensaje contiene una URL que empieza con https:// o http://, copiarla EXACTAMENTE en "location" (no la parafrasees, no uses el nombre de la plataforma).
+- Ejemplo: si el mensaje tiene "https://us02web.zoom.us/j/..." → location = "https://us02web.zoom.us/j/..." (NO "Zoom", NO "Zoom Meeting").
+- Si hay varias URLs, priorizar la de la videollamada (zoom.us, meet.google.com, teams.microsoft.com, webex.com, meet.jit.si).
+- Solo si no hay URL y se menciona la plataforma → usar nombre de plataforma (ej: "Zoom").
+- Para eventos presenciales: nombre del lugar o dirección física.
+- Si no se menciona ni lugar ni link → null.
 
 REGLAS DE mentioned_attendees:
 - Detectá personas que acompañan o participan: "voy con Matías y Juan Pablo", "con Pérez", "vamos con la comisión de...", "me acompaña X"
