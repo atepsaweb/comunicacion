@@ -35,9 +35,9 @@ REGLAS DE requires_confirmation:
 - false para personal
 
 REGLAS DE LOCATION:
-- Para eventos online/secretariat: si se menciona un link o plataforma (Zoom, Meet, Teams, WebEx, etc.) o se pega una URL, poner la URL o nombre de plataforma en "location"
-- Para eventos presenciales/mobilization: el nombre del lugar o dirección física va en "location"
-- Si el link es solo una URL sin texto extra, ponerla tal como está en "location"
+- Para eventos online/secretariat: si el mensaje contiene una URL (empieza con http:// o https://), poner ESA URL en "location". Si hay varias URLs, elegir la del enlace de la reunión (zoom.us, meet.google.com, teams.microsoft.com, webex, etc.). Si no hay URL pero hay mención a una plataforma, poner el nombre de la plataforma (ej: "Zoom").
+- Para eventos presenciales/mobilization: el nombre del lugar o dirección física va en "location".
+- IMPORTANTE: si hay una URL, siempre preferir la URL completa sobre el solo nombre de la plataforma.
 - Si no se menciona lugar ni link → null
 
 REGLAS DE mentioned_attendees:
