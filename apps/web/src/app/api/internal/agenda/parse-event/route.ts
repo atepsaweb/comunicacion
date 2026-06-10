@@ -466,7 +466,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Formatear mensaje de confirmación
   const dateFormatted = formatDateForMessage(parsed.starts_at, parsed.all_day);
-  const locationLine = parsed.location ? `📍 ${parsed.location}` : '📍 Sin especificar';
+  const locationIcon = parsed.type === 'secretariat' ? '🔗' : '📍';
+  const locationFallback = parsed.type === 'secretariat' ? '🔗 Sin link aún' : '📍 Sin lugar especificado';
+  const locationLine = parsed.location ? `${locationIcon} ${parsed.location}` : locationFallback;
   const typeLine = `🏷 ${TYPE_LABELS[parsed.type] ?? parsed.type}`;
 
   const attendeesLine = attendeeRes.resolved.length > 0
@@ -476,11 +478,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ? `\n⚠️ No encontré en el Secretariado a: ${attendeeRes.unresolved.join(', ')}. Si querés convocarlos, tocá Editar y nombralos con apellido.`
     : '';
 
-  const warningLine = parsed.missing_fields.length > 0 && !parsed.missing_fields.includes('starts_at')
-    ? `\n⚠️ Faltó: ${parsed.missing_fields.join(', ')}`
-    : '';
+  // missing_fields no se muestra al usuario: el mensaje de confirmación ya expone
+  // todos los datos extraídos y el usuario puede tocar Editar si algo está mal.
 
-  const confirmBody = `*${parsed.title}*\n📅 ${dateFormatted}\n${locationLine}\n${typeLine}${attendeesLine}${unresolvedLine}${warningLine}`;
+  const confirmBody = `*${parsed.title}*\n📅 ${dateFormatted}\n${locationLine}\n${typeLine}${attendeesLine}${unresolvedLine}`;
 
   // Enviar mensaje interactivo con botones
   const sendResult = await sendWhatsAppInteractive(
