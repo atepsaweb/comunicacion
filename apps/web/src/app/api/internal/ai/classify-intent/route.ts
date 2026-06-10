@@ -4,7 +4,7 @@
 // una solicitud de ausencia, o una pausa semanal.
 // La clasificación guía el resto del flujo de n8n (a qué endpoint llamar a continuación).
 import { NextRequest, NextResponse } from 'next/server';
-import { eq, and, gte, desc } from 'drizzle-orm';
+import { eq, and, gte, desc, inArray } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
@@ -96,14 +96,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Fast-path 2: si el bot le preguntó recientemente fecha/hora para un evento
-  // (purpose='event_clarification' en los últimos 30 min), la respuesta del usuario
-  // es la continuación del alta de evento — no un reporte.
+  // (event_clarification) o a quién convocar (event_attendees_request) en los
+  // últimos 30 min, la respuesta del usuario es la continuación del alta de
+  // evento — no un reporte. parse-event distingue entre ambos estados.
   if (msg.user_id) {
     const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
     const pendingClarification = await db.query.outboundMessages.findFirst({
       where: and(
         eq(schema.outboundMessages.user_id, msg.user_id),
-        eq(schema.outboundMessages.purpose, 'event_clarification'),
+        inArray(schema.outboundMessages.purpose, ['event_clarification', 'event_attendees_request'] as const),
         gte(schema.outboundMessages.sent_at, thirtyMinAgo),
       ),
       columns: { id: true },

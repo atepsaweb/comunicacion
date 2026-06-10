@@ -147,6 +147,7 @@ Generación (**modelo de convocatoria dirigida, 2026-06-09**):
 - En el alta por WhatsApp, `parse-event` detecta acompañantes mencionados ("voy con Matías y Juan Pablo"), los resuelve contra `users.full_name` (match único, sin tildes) y pre-crea sus filas con `status='invited'`. Nombres ambiguos o sin match se informan en el mensaje de confirmación.
 - Al pasar a `confirmed`, `onEventConfirmed` crea la fila del creador (`status='going'`, sirve de guard de doble ejecución), envía la invitación con botones solo a los convocados pre-creados (saltea licencias → `on_leave`), y para eventos institucionales avisa a `press_admin` (informativo, sin botones).
 - **Ya no se convoca a los 27 por cada evento institucional**: la visibilidad para el resto es por panel/calendario/iCal (todos los eventos son públicos para el Secretariado desde 2026-06-09; solo `pending_confirmation` queda privado del creador).
+- Si el evento institucional se confirma **sin convocados**, el bot pregunta "¿A quién convoco?" (outbound `purpose='event_attendees_request'` con `meta.eventId`). La respuesta ("nombres" / "todos" / "nadie") la procesa `parse-event` vía el fast-path de classify-intent: crea los `event_attendees`, envía las invitaciones y reprograma los recordatorios.
 
 ---
 

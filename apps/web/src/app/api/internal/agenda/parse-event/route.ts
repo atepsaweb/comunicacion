@@ -8,7 +8,7 @@
 //   4. Crea el evento con status='pending_confirmation'
 //   5. Envía un mensaje interactivo con los datos parseados y botones [Sí / Editar / Cancelar]
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq, isNull, ne } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, ne } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
@@ -24,6 +24,11 @@ import {
 } from '@/lib/ai/prompts/parse-event';
 import { getActivePrompt } from '@/lib/ai/db-prompts';
 import { sendWhatsAppInteractive, sendWhatsAppText } from '@/lib/whatsapp';
+import {
+  inviteMentionedAttendees,
+  rescheduleNotifications,
+  type EventRow,
+} from '@/lib/agenda/on-event-confirmed';
 import { logger } from '@/lib/logger';
 
 type Body = { messageId: string };
@@ -134,6 +139,153 @@ async function resolveMentionedAttendees(
   return { resolved, unresolved };
 }
 
+// ─── Respuesta a "¿a quién convoco?" ──────────────────────────────────────────
+
+type AttendeesRequestState = {
+  outboundId: string;
+  eventId: string;
+};
+
+/** Busca un pedido de convocados pendiente (últimos 30 min) para este usuario. */
+async function findPendingAttendeesRequest(userId: string): Promise<AttendeesRequestState | null> {
+  const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000);
+  const row = await db.query.outboundMessages.findFirst({
+    where: and(
+      eq(schema.outboundMessages.user_id, userId),
+      eq(schema.outboundMessages.purpose, 'event_attendees_request'),
+      gte(schema.outboundMessages.sent_at, thirtyMinAgo),
+    ),
+    columns: { id: true, meta: true },
+    orderBy: [desc(schema.outboundMessages.sent_at)],
+  });
+  if (!row) return null;
+  const meta = row.meta as { eventId?: string } | null;
+  if (!meta?.eventId) return null;
+  return { outboundId: row.id, eventId: meta.eventId };
+}
+
+/**
+ * Procesa la respuesta del creador a "¿a quién convoco?":
+ *   "todos" → todo el Secretariado activo · "nadie"/"no" → nadie · nombres → resolver.
+ * Devuelve true si el mensaje fue consumido por este flujo.
+ */
+async function handleAttendeesReply(
+  state: AttendeesRequestState,
+  user: { id: string; phone_e164: string },
+  text: string,
+  messageId: string,
+): Promise<boolean> {
+  const event = await db.query.events.findFirst({
+    where: eq(schema.events.id, state.eventId),
+    columns: {
+      id: true, title: true, type: true, status: true, starts_at: true, ends_at: true,
+      all_day: true, location: true, created_by: true, requires_confirmation: true,
+      is_important: true, reminder_config: true,
+    },
+  });
+
+  const consumeState = () =>
+    db.update(schema.outboundMessages)
+      .set({ purpose: 'other' })
+      .where(eq(schema.outboundMessages.id, state.outboundId));
+
+  const markProcessed = () =>
+    db.update(schema.inboundMessages)
+      .set({ processed_at: new Date() })
+      .where(eq(schema.inboundMessages.id, messageId));
+
+  if (!event || event.status === 'cancelled' || event.created_by !== user.id) {
+    await consumeState();
+    return false; // que siga el flujo normal de alta de evento
+  }
+
+  const textNorm = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+  // "nadie" / "no" / "ninguno" → sin convocados
+  if (/^(nadie|no|ninguno|nada)\b/.test(textNorm)) {
+    await consumeState();
+    await sendWhatsAppText(user.phone_e164, 'Listo, queda sin convocados. Podés sumar gente más adelante desde el panel.').catch(() => undefined);
+    await markProcessed();
+    logger.info({ eventId: event.id }, 'attendees-reply: sin convocados');
+    return true;
+  }
+
+  // Convocados ya existentes (para no duplicar ni re-invitar)
+  const existingRows = await db
+    .select({ user_id: schema.eventAttendees.user_id })
+    .from(schema.eventAttendees)
+    .where(eq(schema.eventAttendees.event_id, event.id));
+  const existingIds = new Set(existingRows.map(r => r.user_id));
+
+  let newUserIds: string[] = [];
+  let ackList = '';
+  let unresolvedNote = '';
+
+  if (/\btodos\b|\btodo el secretariado\b|\btodas\b/.test(textNorm)) {
+    const activeUsers = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(and(
+        eq(schema.users.is_active, true),
+        isNull(schema.users.deleted_at),
+        inArray(schema.users.role, ['secretary', 'executive'] as const),
+        ne(schema.users.id, event.created_by),
+      ));
+    newUserIds = activeUsers.map(u => u.id).filter(id => !existingIds.has(id));
+    ackList = `todo el Secretariado (${newUserIds.length} personas)`;
+  } else {
+    // Nombres: "con Paola y Ricardo", "Paola, Ricardo y Marcelo"
+    const cleaned = text.replace(/^\s*(con|a)\s+/i, '');
+    const names = cleaned.split(/\s*,\s*|\s+y\s+|\s+e\s+/i).map(s => s.trim()).filter(Boolean);
+    const res = await resolveMentionedAttendees(names, event.created_by);
+
+    if (res.resolved.length === 0) {
+      // Nada resuelto: pedir de nuevo sin consumir el estado
+      const retry = res.unresolved.length > 0
+        ? `No encontré en el Secretariado a: ${res.unresolved.join(', ')}. Probá con nombre y apellido, o respondé *todos* o *nadie*.`
+        : 'No entendí a quién convocar. Respondé con los nombres, *todos* o *nadie*.';
+      await sendWhatsAppText(user.phone_e164, retry).catch(() => undefined);
+      await markProcessed();
+      return true;
+    }
+
+    newUserIds = res.resolved.map(r => r.userId).filter(id => !existingIds.has(id));
+    ackList = res.resolved.map(r => r.fullName).join(', ');
+    if (res.unresolved.length > 0) {
+      unresolvedNote = `\n⚠️ No encontré a: ${res.unresolved.join(', ')}.`;
+    }
+  }
+
+  if (newUserIds.length > 0) {
+    await db.insert(schema.eventAttendees).values(
+      newUserIds.map(uid => ({
+        id: uuidv7(),
+        event_id: event.id,
+        user_id: uid,
+        status: 'invited' as const,
+      })),
+    );
+  }
+
+  await consumeState();
+
+  // Si el evento ya está confirmado: invitar ahora y reprogramar recordatorios.
+  // Si está proposed, las invitaciones salen cuando la Mesa Ejecutiva apruebe.
+  if (event.status === 'confirmed' && newUserIds.length > 0) {
+    await inviteMentionedAttendees(event as EventRow, newUserIds);
+    await rescheduleNotifications(event.id);
+  }
+
+  const ackText = event.status === 'confirmed'
+    ? `✅ Convoqué a ${ackList}. Les avisé por WhatsApp.${unresolvedNote}`
+    : `✅ Anotado: ${ackList}. Las invitaciones salen cuando la Mesa Ejecutiva apruebe el evento.${unresolvedNote}`;
+  await sendWhatsAppText(user.phone_e164, ackText).catch(() => undefined);
+
+  await markProcessed();
+  logger.info({ eventId: event.id, invited: newUserIds.length }, 'attendees-reply: convocados agregados');
+  return true;
+}
+
 // ─── Reminder config ──────────────────────────────────────────────────────────
 
 async function getDefaultReminderConfig(eventType: string): Promise<ReminderConfig> {
@@ -184,6 +336,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     text = tx?.text ?? '';
   }
   if (!text) return NextResponse.json({ error: 'No text content to parse' }, { status: 422 });
+
+  // ¿Es la respuesta a "¿a quién convoco?"? Si hay un pedido pendiente, este
+  // mensaje es la lista de convocados de un evento ya creado, no un evento nuevo.
+  const attendeesReq = await findPendingAttendeesRequest(user.id);
+  if (attendeesReq) {
+    const consumed = await handleAttendeesReply(attendeesReq, user, text, messageId);
+    if (consumed) {
+      return NextResponse.json({ attendeesReplyProcessed: true, eventId: attendeesReq.eventId });
+    }
+  }
 
   // Limpiar eventos pending_confirmation anteriores de este usuario
   // (evita que se acumulen si el usuario escribe varios eventos sin confirmar)

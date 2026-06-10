@@ -12,7 +12,7 @@
 //   attend_yes/no/maybe:<eventId>   → respuesta a convocatoria
 //   approve_proposal/reject_proposal:<eventId> → aprobación de Mesa Ejecutiva
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { validateInternalSecret } from '@/lib/internal-auth';
@@ -121,6 +121,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await sendWhatsAppText(user.phone_e164, ackText).catch(err =>
         logger.warn({ err, userId: user.id }, 'confirm_event: fallo al enviar ack (no fatal)')
       );
+
+      // Eventos institucionales sin convocados (no se mencionó a nadie en el alta):
+      // preguntar a quién convocar. La respuesta la procesa parse-event vía el
+      // fast-path event_attendees_request de classify-intent.
+      if (event.type === 'secretariat' || event.type === 'mobilization') {
+        const preCreated = await db.query.eventAttendees.findFirst({
+          where: and(
+            eq(schema.eventAttendees.event_id, entityId),
+            ne(schema.eventAttendees.user_id, user.id),
+          ),
+          columns: { id: true },
+        });
+
+        if (!preCreated) {
+          const askText =
+            `👥 ¿A quién convoco para *${event.title}*?\n\n` +
+            `Respondé con los nombres (ej: "Paola y Ricardo"), *todos* para convocar a todo el Secretariado, o *nadie*.`;
+          try {
+            const askResult = await sendWhatsAppText(user.phone_e164, askText);
+            await db.insert(schema.outboundMessages).values({
+              provider: askResult.provider,
+              provider_message_id: askResult.providerMessageId,
+              to_phone_e164: user.phone_e164,
+              user_id: user.id,
+              cycle_id: message.cycle_id ?? null,
+              purpose: 'event_attendees_request',
+              body: askText,
+              meta: { eventId: entityId },
+              sent_at: new Date(),
+              delivery_status: 'sent',
+            });
+          } catch (err) {
+            logger.warn({ err, eventId: entityId }, 'confirm_event: fallo al preguntar convocados (no fatal)');
+          }
+        }
+      }
 
       if (newStatus === 'confirmed') {
         onEventConfirmed(entityId).catch(err =>

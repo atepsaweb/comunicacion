@@ -50,7 +50,7 @@ function toARTDateISO(date: Date): string {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface EventRow {
+export interface EventRow {
   id: string;
   title: string;
   type: 'personal' | 'secretariat' | 'mobilization';
@@ -124,7 +124,14 @@ export async function onEventConfirmed(eventId: string): Promise<void> {
 
 // ─── Invitación a los convocados pre-creados (mencionados) ────────────────────
 
-async function inviteMentionedAttendees(event: EventRow): Promise<void> {
+/**
+ * Envía la invitación con botones a los convocados en estado 'invited'.
+ * `onlyUserIds` restringe el envío (ej: convocados recién agregados, para no
+ * re-invitar a los que ya recibieron la suya).
+ */
+export async function inviteMentionedAttendees(event: EventRow, onlyUserIds?: string[]): Promise<void> {
+  if (onlyUserIds && onlyUserIds.length === 0) return;
+
   // Convocados pre-creados por parse-event (o el panel), excluyendo al creador
   const attendees = await db
     .select({
@@ -141,6 +148,7 @@ async function inviteMentionedAttendees(event: EventRow): Promise<void> {
         ne(schema.eventAttendees.user_id, event.created_by),
         eq(schema.users.is_active, true),
         isNull(schema.users.deleted_at),
+        ...(onlyUserIds ? [inArray(schema.eventAttendees.user_id, onlyUserIds)] : []),
       ),
     );
 
