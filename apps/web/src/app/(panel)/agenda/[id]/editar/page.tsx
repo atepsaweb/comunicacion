@@ -2,7 +2,7 @@
 // Carga el evento en el server, valida permisos y delega en el form client.
 import { getServerSession } from 'next-auth';
 import { notFound, redirect } from 'next/navigation';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
@@ -55,12 +55,28 @@ export default async function EditarEventoPage({ params }: { params: { id: strin
   if (!isOwner && !isAdmin) notFound();
   if (row.status === 'cancelled' || row.status === 'done') redirect(`/agenda/${row.id}`);
 
+  const [allUsers, existingAttendees] = await Promise.all([
+    db
+      .select({
+        id: schema.users.id,
+        full_name: schema.users.full_name,
+        position: schema.users.position,
+      })
+      .from(schema.users)
+      .where(and(eq(schema.users.is_active, true), isNull(schema.users.deleted_at)))
+      .orderBy(schema.users.full_name),
+    db
+      .select({ user_id: schema.eventAttendees.user_id })
+      .from(schema.eventAttendees)
+      .where(eq(schema.eventAttendees.event_id, row.id)),
+  ]);
+
   return (
     <EditarEventoForm
       eventId={row.id}
-      eventType={row.type}
       initial={{
         title: row.title,
+        type: row.type,
         allDay: row.all_day,
         date: toARTDateISO(row.starts_at),
         time: row.all_day ? '09:00' : toARTTime(row.starts_at),
@@ -69,7 +85,9 @@ export default async function EditarEventoPage({ params }: { params: { id: strin
         location: row.location ?? '',
         description: row.description_md ?? '',
         reminders: (row.reminder_config ?? {}) as ReminderConfig,
+        attendeeIds: existingAttendees.map(a => a.user_id),
       }}
+      allUsers={allUsers}
     />
   );
 }

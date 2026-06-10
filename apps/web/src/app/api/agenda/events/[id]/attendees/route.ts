@@ -2,9 +2,13 @@
 //   Lista de convocados con estado de asistencia.
 //   ?format=xlsx  → descarga la planilla de cumplimiento.
 //
-// Solo accesible para: el creador del evento, ejecutiva, press_admin.
+// PUT /api/agenda/events/[id]/attendees
+//   Reemplaza la lista completa de invitados. Body: { user_ids: string[] }.
+//   Solo accesible para: el creador del evento, press_admin.
+//
+// Solo GET accesible para: el creador del evento, ejecutiva, press_admin.
 import { NextRequest, NextResponse } from 'next/server';
-import { eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';
 import * as XLSX from 'xlsx';
 import { authOptions } from '@/lib/auth';
@@ -106,4 +110,67 @@ export async function GET(
   }
 
   return NextResponse.json({ attendees: rows });
+}
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { id: string } },
+): Promise<NextResponse> {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id: userId, role } = session.user;
+
+  const event = await db.query.events.findFirst({
+    where: eq(schema.events.id, params.id),
+    columns: { id: true, created_by: true, status: true },
+  });
+
+  if (!event) return NextResponse.json({ error: 'Evento no encontrado' }, { status: 404 });
+  if (event.created_by !== userId && role !== 'press_admin') {
+    return NextResponse.json({ error: 'Sin acceso' }, { status: 403 });
+  }
+  if (event.status === 'cancelled' || event.status === 'done') {
+    return NextResponse.json({ error: 'No se puede editar un evento cancelado o finalizado' }, { status: 400 });
+  }
+
+  const body = await req.json() as { user_ids?: unknown };
+  if (!Array.isArray(body.user_ids)) {
+    return NextResponse.json({ error: 'user_ids debe ser un array' }, { status: 400 });
+  }
+  const newUserIds = (body.user_ids as unknown[]).filter((v): v is string => typeof v === 'string');
+
+  const existing = await db
+    .select({ user_id: schema.eventAttendees.user_id })
+    .from(schema.eventAttendees)
+    .where(eq(schema.eventAttendees.event_id, params.id));
+
+  const existingSet = new Set(existing.map(r => r.user_id));
+  const newSet = new Set(newUserIds);
+
+  const toRemove = Array.from(existingSet).filter(uid => !newSet.has(uid));
+  const toAdd = newUserIds.filter(uid => !existingSet.has(uid));
+
+  if (toRemove.length > 0) {
+    await db
+      .delete(schema.eventAttendees)
+      .where(
+        and(
+          eq(schema.eventAttendees.event_id, params.id),
+          inArray(schema.eventAttendees.user_id, toRemove),
+        ),
+      );
+  }
+
+  if (toAdd.length > 0) {
+    await db.insert(schema.eventAttendees).values(
+      toAdd.map(uid => ({
+        event_id: params.id,
+        user_id: uid,
+        status: 'invited' as const,
+      })),
+    );
+  }
+
+  return NextResponse.json({ ok: true, added: toAdd.length, removed: toRemove.length });
 }

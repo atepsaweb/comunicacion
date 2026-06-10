@@ -108,6 +108,9 @@ export async function PATCH(
   if (body.reminder_config != null && typeof body.reminder_config === 'object') {
     updates.reminder_config = body.reminder_config as ReminderConfig;
   }
+  if (typeof body.type === 'string' && ['personal', 'secretariat', 'mobilization'].includes(body.type)) {
+    updates.type = body.type as 'personal' | 'secretariat' | 'mobilization';
+  }
   // press_admin puede aprobar eventos propuestos
   const isApproving =
     role === 'press_admin' && body.status === 'confirmed' && existing.status === 'proposed';
