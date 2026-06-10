@@ -1,3 +1,7 @@
+// Endpoint para aprobar el consolidado semanal.
+// Julián lo llama desde el panel de revisión cuando está conforme con el contenido del consolidado.
+// Cambia el estado de 'draft' a 'approved' y registra quién lo aprobó y cuándo.
+// Solo el rol press_admin puede aprobar consolidados.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

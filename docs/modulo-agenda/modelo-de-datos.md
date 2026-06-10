@@ -55,8 +55,9 @@ export const eventNotificationKindEnum = pgEnum('event_notification_kind', [
   'invitation',
   'reminder_7d',
   'reminder_24h',
-  'reminder_12h',
+  'reminder_12h', // legacy: ya no se ofrece en UI (2026-06-09)
   'reminder_2h',
+  'reminder_0h',  // al momento del evento (para reuniones online)
   'followup',     // "¿cómo salió?" al creador, día después
   'cancellation', // aviso de cancelación/reprogramación (exento del tope)
 ]);
@@ -215,10 +216,12 @@ Preferencias de notificación **por secretario** (R1, refinamiento 2026-06-07). 
 Forma de `prefs` (ausencia de key = hereda el `reminder_config` del evento):
 ```json
 {
-  "secretariat":  { "7d": false, "24h": true, "12h": false, "2h": true },
-  "mobilization": { "7d": true,  "24h": true, "12h": true,  "2h": true }
+  "secretariat":  { "7d": false, "24h": true, "12h": false, "2h": false, "0h": true },
+  "mobilization": { "7d": false, "24h": true, "12h": false, "2h": true,  "0h": false }
 }
 ```
+
+> **Cambio 2026-06-09**: en UI los tipos se muestran como **Online** (`secretariat`) y **Presencial** (`mobilization`). Defaults: online = 24h + al momento del evento (`0h`); presencial = 24h + 2h. La opción de 12h quedó legacy (eventos viejos pueden tenerla).
 
 Reglas:
 - Solo aplica a recordatorios (`reminder_*`). La `invitation` y la `cancellation` siempre se mandan.

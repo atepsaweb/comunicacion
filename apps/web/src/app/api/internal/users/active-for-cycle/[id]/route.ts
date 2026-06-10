@@ -1,3 +1,7 @@
+// Endpoint para obtener los usuarios activos en un ciclo dado (excluyendo los de licencia).
+// n8n lo usa antes de enviar mensajes masivos (trigger, recordatorios) para saber
+// a quiénes enviar: usuarios activos que no tengan ausencia registrada en ese período.
+// Devuelve la lista filtrada con nombre, teléfono y rol de cada usuario.
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, gte, lte } from 'drizzle-orm';
 import { db } from '@/db';

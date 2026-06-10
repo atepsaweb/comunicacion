@@ -1,3 +1,8 @@
+// Página de detalle de un reporte individual.
+// Muestra todos los ítems extraídos del reporte de un secretario para un ciclo dado,
+// agrupados por categoría. También muestra el puntaje de completitud y el estado.
+// Solo el propio secretario o press_admin puede acceder.
+// Si el reporte está esperando una respuesta de seguimiento, muestra un aviso.
 import { getServerSession } from 'next-auth';
 import { notFound } from 'next/navigation';
 import { authOptions } from '@/lib/auth';

@@ -36,8 +36,8 @@ const TYPE_CHIP: Record<AgendaEventRow['type'], string> = {
 
 const TYPE_LABEL: Record<AgendaEventRow['type'], string> = {
   personal:     'Personal',
-  secretariat:  'Secretariado',
-  mobilization: 'Movilización',
+  secretariat:  'Online',
+  mobilization: 'Presencial',
 };
 
 const STATUS_CHIP: Partial<Record<AgendaEventRow['status'], string>> = {

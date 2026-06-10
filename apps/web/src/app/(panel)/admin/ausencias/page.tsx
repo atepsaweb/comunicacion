@@ -1,3 +1,8 @@
+// Página de administración de ausencias (vista del admin).
+// Solo accesible para el rol press_admin.
+// A diferencia de /ausencias (donde cada secretario ve solo sus propias ausencias),
+// acá Julián puede ver y gestionar las ausencias de todos los integrantes del Secretariado.
+// Permite registrar ausencias en nombre de cualquier secretario y borrar las incorrectas.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { and, desc, eq, inArray } from 'drizzle-orm';

@@ -1,3 +1,10 @@
+// Endpoint para adjuntar la transcripción de audio a un mensaje entrante.
+// n8n lo llama después de que faster-whisper termina de transcribir el audio.
+// El proceso fuera de Next.js es:
+//   1. n8n descarga el audio del servidor
+//   2. Lo envía a faster-whisper (servicio Python corriendo en el mismo VPS)
+//   3. Recibe el texto transcripto y lo envía a este endpoint
+// El endpoint guarda la transcripción vinculada al mensaje y marca el mensaje como procesado.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';

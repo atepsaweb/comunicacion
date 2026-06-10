@@ -1,3 +1,11 @@
+// Endpoint para extraer el texto de un documento o imagen adjunto.
+// n8n lo llama cuando recibe un mensaje con imagen, PDF o documento Word.
+// Según el tipo de archivo, usa un método diferente:
+//   - .txt: lectura directa (sin IA)
+//   - Imágenes: Claude Vision (OCR con IA)
+//   - PDF/Word: servicio transcriber (pdfplumber/python-docx)
+//   - PDF escaneado sin texto: fallback a Claude Vision si pdfplumber devuelve vacío
+// El texto extraído se guarda en document_extractions para que la IA lo procese luego.
 import { readFile } from 'fs/promises';
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';

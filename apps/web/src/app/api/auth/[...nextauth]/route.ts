@@ -1,3 +1,8 @@
+// Handler de NextAuth: gestiona todas las rutas de autenticación (/api/auth/*).
+// Incluye un parche para agregar Max-Age a la cookie de sesión, ya que
+// NextAuth v4 con CredentialsProvider emite la cookie sin Max-Age, lo que
+// hace que el navegador la trate como cookie de sesión y la borre al cerrarse.
+// Con este parche, la cookie dura 30 días (igual que SESSION_MAX_AGE en lib/auth.ts).
 import NextAuth from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { type NextRequest } from 'next/server';

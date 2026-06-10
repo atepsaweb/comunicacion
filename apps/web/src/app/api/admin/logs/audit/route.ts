@@ -1,3 +1,7 @@
+// API para consultar el log de auditoría del sistema.
+// Devuelve las últimas 100 acciones, enriquecidas con el nombre del usuario que las realizó.
+// Lo consume el panel de auditoría (/admin/logs/audit).
+// Solo accesible para press_admin.
 import { NextResponse } from 'next/server';
 import { desc, inArray } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

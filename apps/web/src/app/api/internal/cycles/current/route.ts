@@ -1,3 +1,6 @@
+// Endpoint para obtener el ciclo semanal actualmente activo.
+// n8n lo llama para saber a qué ciclo asociar los mensajes y acciones que está procesando.
+// Devuelve el ciclo abierto o cerrado más reciente.
 import { NextRequest, NextResponse } from 'next/server';
 import { desc } from 'drizzle-orm';
 import { db } from '@/db';

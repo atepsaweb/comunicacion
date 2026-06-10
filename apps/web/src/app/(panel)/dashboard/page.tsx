@@ -1,3 +1,10 @@
+// Página principal del panel (dashboard).
+// Es lo primero que ve el usuario al loguearse. Muestra un resumen rápido del ciclo actual:
+// - El estado de la semana (abierta, cerrada, procesada, publicada)
+// - Cuántos secretarios ya reportaron (para ejecutivos y prensa)
+// - El estado del propio reporte (para secretarios)
+// - Publicaciones pendientes de revisión (solo para Julián)
+// El contenido varía según el rol del usuario.
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { and, desc, eq, inArray, or } from 'drizzle-orm';

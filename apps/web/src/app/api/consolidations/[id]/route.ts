@@ -1,3 +1,6 @@
+// API para editar el texto del consolidado semanal interno.
+// Julián puede editar el Markdown del consolidado desde el panel de revisión
+// antes de aprobarlo. Solo el rol press_admin puede hacerlo.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

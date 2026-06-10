@@ -1,3 +1,7 @@
+// Endpoint para activar una versión histórica de un prompt.
+// Permite hacer rollback a una versión anterior si la nueva no funcionó bien.
+// Desactiva todas las versiones del slug y activa solo la solicitada.
+// Solo el rol press_admin puede activar versiones de prompts.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

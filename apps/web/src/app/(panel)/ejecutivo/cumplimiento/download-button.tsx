@@ -1,5 +1,8 @@
 'use client';
 
+// Botón para descargar la matriz de cumplimiento en formato Excel (.xlsx).
+// Al hacer clic, llama al endpoint /api/exports/cumplimiento.xlsx que genera el archivo
+// y lo descarga directamente al dispositivo del usuario.
 export function DownloadXlsxButton() {
   return (
     <a

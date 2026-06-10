@@ -1,3 +1,8 @@
+// Endpoint para guardar una nueva versión editada de una publicación.
+// Julián puede editar el texto de una publicación en el panel y guardar la versión.
+// Cada guardado crea una nueva entrada en publication_versions con número incremental
+// y la marca como la versión activa actual (current_version_id).
+// El historial de versiones previas queda guardado para poder volver atrás.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, desc } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

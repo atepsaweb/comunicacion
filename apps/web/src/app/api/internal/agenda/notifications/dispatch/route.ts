@@ -54,6 +54,7 @@ function buildReminderText(
     case 'reminder_24h': return `📅 Mañana: *${title}*\n${dateStr}${locLine}`;
     case 'reminder_12h': return `⏰ En 12 horas: *${title}*\n${dateStr}${locLine}`;
     case 'reminder_2h':  return `🔔 En 2 horas: *${title}*\n${dateStr}${locLine}`;
+    case 'reminder_0h':  return `🔔 *${title}* comienza ahora.${locLine}`;
     case 'followup':     return `¿Cómo salió *${title}*? Contame brevemente para sumarlo al reporte semanal.`;
     default:             return `Recordatorio: *${title}*\n${dateStr}`;
   }
@@ -73,7 +74,7 @@ function isMutedByPrefs(
 ): boolean {
   if (!prefs) return false;
   const kindMap: Record<string, string> = {
-    reminder_7d: '7d', reminder_24h: '24h', reminder_12h: '12h', reminder_2h: '2h',
+    reminder_7d: '7d', reminder_24h: '24h', reminder_12h: '12h', reminder_2h: '2h', reminder_0h: '0h',
   };
   const prefKey = kindMap[kind];
   if (!prefKey) return false; // invitation y followup no son silenciables por prefs

@@ -1,3 +1,8 @@
+// Endpoint para archivar o desarchivar un término del glosario.
+// Un término archivado no vuelve a aparecer en la lista del glosario,
+// aunque siga siendo una mención frecuente. Sirve para descartar términos
+// irrelevantes (nombres propios sin importancia, errores de transcripción, etc.).
+// Los términos archivados se guardan en system_settings como JSON.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, sql } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

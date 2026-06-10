@@ -1,3 +1,8 @@
+// Página del log de auditoría.
+// Solo accesible para el rol press_admin.
+// Muestra las últimas 100 acciones registradas en el sistema:
+// quién hizo qué y cuándo (aprobaciones, ediciones, descards, etc.).
+// Sirve para transparencia interna y para investigar si algo salió mal.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { desc, inArray } from 'drizzle-orm';

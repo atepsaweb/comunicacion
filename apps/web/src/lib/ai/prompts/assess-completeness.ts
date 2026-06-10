@@ -1,3 +1,7 @@
+// Prompt para evaluar si el reporte de un secretario está suficientemente completo.
+// Después de extraer los ítems de un reporte, el sistema evalúa si hay suficiente información.
+// Si detecta que falta contexto relevante, sugiere una pregunta de seguimiento.
+// El objetivo es no molestar al secretario innecesariamente: solo repregunta si hay algo importante sin explicar.
 export const ASSESS_COMPLETENESS_SYSTEM = `Sos un asistente que evalúa si un reporte semanal de un secretario del Secretariado Nacional de ATEPSA está suficientemente completo.
 
 ATEPSA es el sindicato argentino de los trabajadores de navegación aérea (controladores de tránsito aéreo, técnicos de comunicaciones, navegación, meteorólogos, AIS, etc.).

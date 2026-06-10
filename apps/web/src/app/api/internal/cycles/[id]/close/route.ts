@@ -1,3 +1,7 @@
+// Endpoint para cerrar un ciclo semanal (cambiar su estado a 'closed').
+// n8n lo llama en el horario de cierre (viernes 18:00 ART).
+// También se llama automáticamente al iniciar el procesamiento desde el panel.
+// Si el ciclo ya está cerrado o más avanzado, devuelve éxito sin cambiar nada.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';

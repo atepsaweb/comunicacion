@@ -51,7 +51,7 @@ export async function notifyProposal(event: ProposalEvent, creatorName: string):
 
   if (reviewers.length === 0) return;
 
-  const typeLabel = event.type === 'mobilization' ? 'movilización' : 'evento del Secretariado';
+  const typeLabel = event.type === 'mobilization' ? 'evento presencial' : 'evento online';
   const dateStr = formatDateShort(event.starts_at, event.all_day);
   const locLine = event.location ? `\n📍 ${event.location}` : '';
 

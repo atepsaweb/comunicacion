@@ -1,3 +1,6 @@
+// Módulo de visión: usa Claude para leer imágenes y PDFs escaneados.
+// Cuando un secretario envía una foto de un documento o un PDF por WhatsApp,
+// Claude extrae el texto visible para que pueda incluirse en el reporte.
 import Anthropic from '@anthropic-ai/sdk';
 import { readFile } from 'fs/promises';
 import { db } from '@/db';
@@ -6,6 +9,8 @@ import { logger } from '@/lib/logger';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Usamos Haiku para las tareas de visión: es más económico y suficientemente capaz
+// para transcribir texto de documentos
 const VISION_MODEL = 'claude-haiku-4-5-20251001';
 
 const VISION_SYSTEM = `Sos un asistente del sistema de reporte semanal de ATEPSA, el sindicato argentino de los trabajadores de navegación aérea.

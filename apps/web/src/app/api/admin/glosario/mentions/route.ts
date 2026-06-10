@@ -1,3 +1,7 @@
+// API para obtener las menciones más frecuentes del glosario.
+// Devuelve las entidades (organismos, siglas, etc.) más nombradas en los reportes de los últimos 90 días,
+// con su frecuencia, si ya están en el prompt, su descripción guardada, y si están archivadas.
+// Lo usa el panel del glosario para mostrar los términos candidatos a agregar al prompt.
 import { NextResponse } from 'next/server';
 import { sql, eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

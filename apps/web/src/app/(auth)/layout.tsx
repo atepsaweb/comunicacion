@@ -1,3 +1,6 @@
+// Layout del área de autenticación (solo la página de login por ahora).
+// Su función principal es evitar que alguien que ya está logueado vea el formulario de login.
+// Si ya tiene sesión válida, lo redirige directo al dashboard.
 import { redirect } from 'next/navigation';
 import { getToken } from 'next-auth/jwt';
 import { headers } from 'next/headers';

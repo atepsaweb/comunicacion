@@ -1,3 +1,5 @@
+// Componente de campo de texto (input) con estilo unificado del sistema.
+// Aplica el estilo visual del panel: borde zinc, fondo blanco, ring azul al foco.
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 

@@ -19,13 +19,13 @@ Sigue las convenciones de `docs/workflows.md`:
 | `inbound-message-handle` | Webhook | On-demand | **MODIFICADO** (ramas nuevas) |
 | `weekly-trigger-send` | Cron | Jueves 10:00 | **MODIFICADO** (lista de eventos) |
 
-> Por qué horario y no diario: los recordatorios de `2h` y `12h` antes no se pueden acertar con un cron diario. Horario da tolerancia ±1h, aceptable. Si se necesita más precisión, bajar a `*/30`.
+> **Actualizado 2026-06-09**: el dispatch corre cada **5 minutos** (`*/5 * * * *`). El recordatorio `reminder_0h` ("comienza ahora", default de eventos online) necesita precisión de minutos; con cron horario llegaba hasta 59 min tarde. El endpoint es liviano: sin pendientes es una sola query.
 
 ---
 
 ## 1. `agenda-notifications-dispatch` (NUEVO)
 
-**Trigger**: Cron `0 * * * *` (cada hora).
+**Trigger**: Cron `*/5 * * * *` (cada 5 minutos).
 
 **Pasos**:
 1. `Set` context.
@@ -37,7 +37,7 @@ Sigue las convenciones de `docs/workflows.md`:
    - Devuelve `{ sent, skipped, failed }`.
 3. Si `failed > 0`, alerta a Julián con el detalle.
 
-**Por qué un endpoint y no nodos n8n**: el despacho tiene re-validación y reglas de audiencia por `kind` (ver modelo-de-datos). Eso es lógica de negocio → vive en la app, no en n8n. n8n solo dispara el tick horario.
+**Por qué un endpoint y no nodos n8n**: el despacho tiene re-validación y reglas de audiencia por `kind` (ver modelo-de-datos). Eso es lógica de negocio → vive en la app, no en n8n. n8n solo dispara el tick.
 
 **Error handling**: reintento 2x con backoff. Si el endpoint cae, las notificaciones quedan `pending` y salen en el próximo tick (no se pierden).
 
@@ -116,6 +116,6 @@ Ningún workflow nuevo consulta ausencias directamente: lo hace la app en cada e
 | `weekly-process` | Vie 19:00 | reportes |
 | `weekly-delivery-send` | Lun 08:00 | reportes |
 | `escalation-check` | Lun 09:00 | reportes |
-| `agenda-notifications-dispatch` | **cada hora** | **agenda** |
+| `agenda-notifications-dispatch` | **cada 5 min** | **agenda** |
 
 > Recordatorio de infra (memoria del proyecto): los crons de n8n se re-crean en restart y el timezone está en ART. Verificar al deployar que los dos crons nuevos quedaron activos.

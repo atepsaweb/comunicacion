@@ -24,9 +24,10 @@ ESQUEMA DE SALIDA:
 }
 
 REGLAS DE TIPO:
-- "mobilization": movilización, paro, marcha, concentración, manifestación, acción gremial, asamblea general
-- "secretariat": reunión institucional, asamblea del secretariado, evento del gremio, involucra al secretariado
+- "secretariat": evento institucional ONLINE/virtual — reunión por Zoom, Meet, videollamada, o cuando el lugar es una plataforma digital
+- "mobilization": evento institucional PRESENCIAL — reunión en persona, movilización, paro, marcha, concentración, asamblea en una dirección física
 - "personal": compromisos personales, recordatorios propios; usá este como default si no queda claro
+- Si es institucional pero no queda claro si es online o presencial: usá "mobilization" si hay una dirección física, "secretariat" si hay link/plataforma, y si no hay ninguna pista usá "secretariat" y agregá "type" a missing_fields
 
 REGLAS DE requires_confirmation:
 - true para secretariat y mobilization (involucra a más de una persona)
@@ -74,14 +75,17 @@ export type ParseEventOutput = {
 export type ReminderConfig = {
   '7d': boolean;
   '24h': boolean;
-  '12h': boolean;
+  '12h': boolean; // legacy: ya no se ofrece en UI, eventos viejos pueden tenerlo en true
   '2h': boolean;
+  '0h': boolean;  // al momento del evento (útil para reuniones online)
   followup: boolean;
 };
 
 /** Configs por defecto si no hay nada en system_settings. Espejo de seed-agenda-settings.ts. */
+// secretariat = evento online (Zoom/Meet): 24h antes + al momento de empezar.
+// mobilization = evento presencial: 24h antes + 2h antes (margen de traslado).
 export const REMINDER_DEFAULTS: Record<string, ReminderConfig> = {
-  personal:     { '7d': false, '24h': true,  '12h': false, '2h': false, followup: false },
-  secretariat:  { '7d': false, '24h': true,  '12h': false, '2h': true,  followup: true },
-  mobilization: { '7d': false, '24h': true,  '12h': true,  '2h': true,  followup: true },
+  personal:     { '7d': false, '24h': true,  '12h': false, '2h': false, '0h': false, followup: false },
+  secretariat:  { '7d': false, '24h': true,  '12h': false, '2h': false, '0h': true,  followup: true },
+  mobilization: { '7d': false, '24h': true,  '12h': false, '2h': true,  '0h': false, followup: true },
 };

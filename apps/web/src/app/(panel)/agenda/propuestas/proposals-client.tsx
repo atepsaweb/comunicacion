@@ -24,8 +24,8 @@ interface Props {
 }
 
 const TYPE_LABEL: Record<string, string> = {
-  secretariat:  'Secretariado',
-  mobilization: 'Movilización',
+  secretariat:  'Online',
+  mobilization: 'Presencial',
 };
 
 const TYPE_COLOR: Record<string, string> = {

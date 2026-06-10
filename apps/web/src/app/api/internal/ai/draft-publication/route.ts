@@ -1,3 +1,10 @@
+// Endpoint para generar el borrador de una publicación para un canal específico.
+// A partir del consolidado ya generado, usa Sonnet para crear el texto adaptado al canal:
+//   - social_instagram: caption con hashtags y sugerencia de imagen
+//   - social_x: hilo de tweets (2-3 tweets de max 280 chars c/u)
+//   - newsletter: artículo de 400-800 palabras en Markdown
+// Solo usa ítems marcados como is_public_safe=true (no expone info confidencial).
+// Si ya existe una publicación de ese kind para el ciclo, devuelve la existente sin regenerar.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '@/db';

@@ -1,3 +1,8 @@
+// Endpoint que genera y descarga la matriz de cumplimiento en formato Excel (.xlsx).
+// Genera una tabla con los secretarios como filas y las semanas como columnas.
+// En cada celda indica si el secretario reportó, tomó pausa, estaba de licencia o no reportó.
+// También incluye una fila de totales al final.
+// Accesible para press_admin y executive.
 import { NextRequest, NextResponse } from 'next/server';
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import * as XLSX from 'xlsx';

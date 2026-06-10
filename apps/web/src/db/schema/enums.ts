@@ -213,8 +213,9 @@ export const deliveryStatusEnum = pgEnum('delivery_status', [
 
 // Tipo de evento de la agenda:
 // - personal: privado, solo lo ve el dueño, sin convocatoria
-// - secretariat: visible a todo el Secretariado, confirmación opcional
-// - mobilization: movilización / acción gremial, visible a todos + confirmación obligatoria
+// - secretariat: evento institucional ONLINE (Zoom/Meet) — en UI se muestra "Online"
+// - mobilization: evento institucional PRESENCIAL (reunión en persona, movilización, marcha) — en UI "Presencial"
+// Ambos institucionales convocan a todo el Secretariado y requieren aprobación si los crea un secretary.
 export const eventTypeEnum = pgEnum('event_type', [
   'personal',
   'secretariat',
@@ -253,7 +254,8 @@ export const attendeeStatusEnum = pgEnum('attendee_status', [
 
 // Tipo de notificación de evento que se programa/envía:
 // - invitation: convocatoria inicial
-// - reminder_7d / reminder_24h / reminder_12h / reminder_2h: recordatorios escalonados
+// - reminder_7d / reminder_24h / reminder_12h / reminder_2h / reminder_0h: recordatorios escalonados
+//   (reminder_12h es legacy: ya no se ofrece en UI pero eventos viejos pueden tenerlo)
 // - followup: "¿cómo salió?" al creador, el día después
 // - cancellation: aviso de cancelación o reprogramación (exento del tope de mensajes)
 export const eventNotificationKindEnum = pgEnum('event_notification_kind', [
@@ -262,6 +264,7 @@ export const eventNotificationKindEnum = pgEnum('event_notification_kind', [
   'reminder_24h',
   'reminder_12h',
   'reminder_2h',
+  'reminder_0h',
   'followup',
   'cancellation',
 ]);

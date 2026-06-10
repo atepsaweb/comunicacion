@@ -1,3 +1,6 @@
+// Convierte el resumen semanal en formato Markdown a un documento Word (.docx)
+// con el membrete institucional de ATEPSA.
+// El archivo generado puede descargarse desde el panel y distribuirse por mail o imprimirse.
 import fs from 'fs';
 import path from 'path';
 import {
@@ -43,8 +46,10 @@ const PAGE_MARGIN = {
 
 // ─── Parser de runs inline ──────────────────────────────────────────────────
 
+// Convierte texto Markdown con formato inline (**negrita**, *cursiva*) a objetos TextRun de docx.
+// Un "run" es un fragmento de texto con formato propio dentro de un párrafo.
 function parseInlineRuns(text: string): TextRun[] {
-  // Separa **bold** y *italic* (el orden importa: primero bold)
+  // Separa **bold** y *italic* (el orden importa: primero bold, para no confundir con italic)
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/);
   return parts
     .filter(p => p.length > 0)
@@ -61,6 +66,8 @@ function parseInlineRuns(text: string): TextRun[] {
 
 // ─── Builder de párrafos ────────────────────────────────────────────────────
 
+// Convierte una línea de Markdown en un párrafo de docx con el estilo correspondiente.
+// Retorna null si la línea es un separador horizontal (---) que no genera párrafo.
 function buildParagraph(line: string): Paragraph | null {
   // H1: # Título
   if (line.startsWith('# ')) {

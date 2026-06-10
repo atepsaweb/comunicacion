@@ -1,3 +1,7 @@
+// API para consultar el log de invocaciones de IA.
+// Soporta filtros opcionales por purpose y cycleId para acotar resultados.
+// Lo consume el panel de logs de IA (/admin/logs/ia).
+// Solo accesible para press_admin.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, desc } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

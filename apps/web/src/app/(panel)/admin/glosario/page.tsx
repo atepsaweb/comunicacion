@@ -1,3 +1,9 @@
+// Página del glosario de IA.
+// Solo accesible para el rol press_admin.
+// Muestra las entidades (organismos, siglas, lugares) más mencionadas en los reportes
+// de los últimos 90 días, con qué frecuencia aparecen y si ya están en el prompt de extracción.
+// Permite agregar descripciones a los términos para que la IA los entienda mejor
+// y también agregar los términos más frecuentes directamente al prompt.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { sql, eq } from 'drizzle-orm';

@@ -1,3 +1,6 @@
+// API de listado de prompts activos.
+// Devuelve todos los prompts con is_active=true, ordenados por slug.
+// Lo usa el panel de administración de prompts para mostrar la lista inicial.
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

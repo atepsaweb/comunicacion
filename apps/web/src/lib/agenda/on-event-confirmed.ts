@@ -128,7 +128,7 @@ async function generateAttendeesAndInvite(event: EventRow): Promise<void> {
   const eventDateISO = toARTDateISO(event.starts_at);
   const dateStr = formatARTShort(event.starts_at, event.all_day);
   const locationLine = event.location ? `\n📍 ${event.location}` : '';
-  const typeLabel = event.type === 'mobilization' ? 'Movilización' : 'Evento del Secretariado';
+  const typeLabel = event.type === 'mobilization' ? 'Evento presencial' : 'Evento online';
 
   const attendeeRows: (typeof schema.eventAttendees.$inferInsert)[] = [];
   const invitedPhones: string[] = [];
@@ -197,8 +197,9 @@ type ReminderEntry = [keyof ReminderConfig, typeof schema.eventNotifications.$in
 const REMINDER_OFFSETS: ReminderEntry[] = [
   ['7d',  'reminder_7d',  7 * 24 * 60 * 60 * 1000],
   ['24h', 'reminder_24h', 24 * 60 * 60 * 1000],
-  ['12h', 'reminder_12h', 12 * 60 * 60 * 1000],
+  ['12h', 'reminder_12h', 12 * 60 * 60 * 1000], // legacy: ya no se ofrece en UI
   ['2h',  'reminder_2h',  2  * 60 * 60 * 1000],
+  ['0h',  'reminder_0h',  0],
 ];
 
 async function scheduleNotifications(event: EventRow): Promise<void> {

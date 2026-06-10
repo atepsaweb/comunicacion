@@ -1,3 +1,7 @@
+// Página de administración de usuarios.
+// Solo accesible para el rol press_admin (Julián).
+// Carga la lista de todos los usuarios del sistema y la pasa al componente cliente
+// para que Julián pueda crear, editar y desactivar usuarios desde el panel.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { authOptions } from '@/lib/auth';

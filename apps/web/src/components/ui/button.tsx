@@ -1,5 +1,8 @@
 'use client';
 
+// Componente de botón reutilizable con variantes de estilo y tamaño.
+// Generado por shadcn/ui y personalizado con los colores institucionales de ATEPSA.
+// Variantes disponibles: default (azul), outline, ghost, destructive (rojo para acciones peligrosas).
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';

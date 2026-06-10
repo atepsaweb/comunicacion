@@ -1,3 +1,7 @@
+// Endpoint para abrir un ciclo semanal (cambiar su estado de 'pending' a 'open').
+// n8n lo llama en el momento programado (jueves 10:00 ART) para dar comienzo
+// al período de reporte de esa semana.
+// Si el ciclo ya está abierto, devuelve éxito sin hacer nada (operación idempotente).
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';

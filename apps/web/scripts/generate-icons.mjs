@@ -1,5 +1,9 @@
 /**
- * Genera los íconos PWA desde public/icon-source.jpg (o .png)
+ * Genera los íconos PWA desde public/icon-source.jpg (o .png).
+ * Crea todos los tamaños necesarios para que la app pueda instalarse como PWA
+ * en Android (íconos de 192px y 512px) y en iOS (apple-touch-icon de 180px).
+ * También genera el ícono "maskable" con padding para la zona segura de Android.
+ *
  * Uso: pnpm generate-icons
  * Requiere: sharp (devDependency)
  */

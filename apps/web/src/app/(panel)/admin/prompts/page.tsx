@@ -1,3 +1,8 @@
+// Página de administración de prompts de IA.
+// Solo accesible para el rol press_admin.
+// Permite editar los textos de instrucción que se le dan a Claude para cada tarea
+// sin necesidad de tocar el código fuente ni reiniciar el servidor.
+// Carga los prompts activos y los pasa al componente cliente para edición.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { eq } from 'drizzle-orm';

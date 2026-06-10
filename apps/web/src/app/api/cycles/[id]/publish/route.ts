@@ -1,3 +1,7 @@
+// Endpoint para marcar un ciclo como 'published'.
+// Julián lo llama desde el panel una vez que distribuyó el consolidado por todos los canales.
+// Es el cierre definitivo del ciclo: indica que la información fue publicada y ya no hay nada pendiente.
+// Solo el rol press_admin puede publicar ciclos.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

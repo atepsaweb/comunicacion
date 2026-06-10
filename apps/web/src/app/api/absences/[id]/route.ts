@@ -1,3 +1,7 @@
+// Endpoint para eliminar (cancelar) una ausencia.
+// Un secretario puede cancelar solo sus propias ausencias.
+// El press_admin puede cancelar las de cualquier secretario.
+// Se usa desde la pantalla de ausencias para "Cancelar" una ausencia futura.
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

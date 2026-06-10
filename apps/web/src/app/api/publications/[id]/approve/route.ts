@@ -1,3 +1,7 @@
+// Endpoint para aprobar una publicación.
+// Julián la llama desde el panel de revisión cuando aprueba el texto de una publicación.
+// Cambia el estado de la publicación de 'in_review' a 'approved'.
+// Solo el rol press_admin puede aprobar publicaciones.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

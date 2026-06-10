@@ -1,3 +1,8 @@
+// API de ausencias del secretario autenticado.
+// GET: devuelve las ausencias del usuario logueado (para mostrarlas en la pantalla de ausencias)
+// POST: crea una nueva ausencia para el usuario logueado
+// Solo el propio secretario puede ver y gestionar sus ausencias por esta ruta.
+// (Los administradores tienen su propia ruta en /api/admin/absences)
 import { NextRequest, NextResponse } from 'next/server';
 import { desc, eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

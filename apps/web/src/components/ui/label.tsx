@@ -1,5 +1,7 @@
 'use client';
 
+// Componente de etiqueta (label) para formularios.
+// Basado en Radix UI Label para accesibilidad correcta (asociación con inputs).
 import * as React from 'react';
 import * as LabelPrimitive from '@radix-ui/react-label';
 import { cn } from '@/lib/utils';

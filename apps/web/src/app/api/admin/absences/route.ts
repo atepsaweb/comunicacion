@@ -1,3 +1,8 @@
+// API de ausencias para el administrador.
+// GET: lista todas las ausencias del sistema con información del usuario correspondiente
+// POST: crea una ausencia para cualquier usuario (en nombre del secretariado)
+// A diferencia de /api/absences (solo las del usuario logueado), esta ruta
+// permite al press_admin ver y gestionar las ausencias de todos los secretarios.
 import { NextRequest, NextResponse } from 'next/server';
 import { desc, eq, inArray } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

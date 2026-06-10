@@ -66,8 +66,8 @@ function formatDateForMessage(isoString: string, allDay: boolean): string {
 
 const TYPE_LABELS: Record<string, string> = {
   personal: 'Personal',
-  secretariat: 'Secretariado',
-  mobilization: 'Movilización 🔥',
+  secretariat: 'Online 💻',
+  mobilization: 'Presencial 📍',
 };
 
 // ─── Reminder config ──────────────────────────────────────────────────────────

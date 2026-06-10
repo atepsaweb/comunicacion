@@ -1,3 +1,6 @@
+// Endpoint para descartar una publicación.
+// Julián lo usa cuando decide que un borrador no sirve y no quiere publicarlo.
+// Cambia el estado a 'discarded'. Solo press_admin puede descartar publicaciones.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

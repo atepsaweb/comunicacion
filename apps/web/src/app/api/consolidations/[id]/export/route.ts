@@ -1,3 +1,7 @@
+// Endpoint para exportar el consolidado semanal como archivo Word (.docx).
+// Convierte el Markdown del consolidado a un documento Word con membrete institucional.
+// El archivo se descarga directamente al dispositivo del usuario.
+// Solo el rol press_admin puede descargar el consolidado.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

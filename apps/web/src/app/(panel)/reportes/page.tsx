@@ -1,3 +1,8 @@
+// Página de reportes: muestra contenido diferente según el rol del usuario.
+// - press_admin: ve el archivo histórico de todos los ciclos (últimas 52 semanas)
+//   con su estado y participación, con link a la pantalla de revisión de cada ciclo.
+// - secretary/executive: ve su propio historial de reportes de las últimas 20 semanas,
+//   con el estado y el puntaje de completitud de cada uno.
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';

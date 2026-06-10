@@ -122,8 +122,8 @@ export async function POST(
   if (cycle) {
     const dateStr = formatDateART(ev.starts_at);
     const eventTypeLabel =
-      ev.type === 'mobilization' ? 'movilización' :
-      ev.type === 'secretariat'  ? 'evento del Secretariado' : 'evento personal';
+      ev.type === 'mobilization' ? 'evento presencial' :
+      ev.type === 'secretariat'  ? 'evento online' : 'evento personal';
 
     // Prefijo de contexto para que la IA sepa que es el resultado de un evento de agenda
     const contextPrefix = `[Resultado del evento "${ev.title}" — ${eventTypeLabel} del ${dateStr}]\n\n`;

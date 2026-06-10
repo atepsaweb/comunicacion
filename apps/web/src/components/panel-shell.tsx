@@ -1,5 +1,10 @@
 'use client';
 
+// Estructura visual principal del panel web.
+// Este componente envuelve todas las páginas del panel y provee:
+//   - En mobile: una barra superior (topbar) con botón para abrir el menú lateral
+//   - En desktop: el menú lateral (sidebar) visible permanentemente
+//   - El área de contenido principal donde se renderizan las páginas
 import { useState } from 'react';
 import { Menu } from 'lucide-react';
 import { SidebarNav } from './sidebar-nav';
@@ -11,6 +16,7 @@ interface Props {
 }
 
 export function PanelShell({ role, fullName, children }: Props) {
+  // Controla si el drawer mobile del menú lateral está abierto o cerrado
   const [open, setOpen] = useState(false);
 
   return (

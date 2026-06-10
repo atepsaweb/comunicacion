@@ -16,10 +16,11 @@ const db = drizzle(pool, { schema });
 // reminder_config por defecto según tipo de evento.
 // Respeta el tope de 4 notificaciones por persona/evento (invitation + hasta 3 recordatorios).
 // 'personal' no convoca a nadie: solo el followup al propio dueño.
+// secretariat = online (24h + al momento) · mobilization = presencial (24h + 2h antes).
 const AGENDA_REMINDER_DEFAULTS = {
-  personal:     { '7d': false, '24h': true,  '12h': false, '2h': false, followup: false },
-  secretariat:  { '7d': false, '24h': true,  '12h': false, '2h': true,  followup: true },
-  mobilization: { '7d': false, '24h': true,  '12h': true,  '2h': true,  followup: true },
+  personal:     { '7d': false, '24h': true,  '12h': false, '2h': false, '0h': false, followup: false },
+  secretariat:  { '7d': false, '24h': true,  '12h': false, '2h': false, '0h': true,  followup: true },
+  mobilization: { '7d': false, '24h': true,  '12h': false, '2h': true,  '0h': false, followup: true },
 };
 
 const SEEDS: { key: string; value: unknown }[] = [

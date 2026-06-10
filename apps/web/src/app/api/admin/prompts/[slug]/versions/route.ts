@@ -1,3 +1,10 @@
+// Endpoint para crear una nueva versión de un prompt y activarla.
+// Julián lo usa desde el panel cuando quiere editar las instrucciones de la IA.
+// El proceso es:
+//   1. Desactiva todas las versiones anteriores del slug
+//   2. Crea una nueva versión con número incremental
+//   3. La marca como activa inmediatamente
+// El historial de versiones anteriores queda guardado para poder volver atrás.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, max } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

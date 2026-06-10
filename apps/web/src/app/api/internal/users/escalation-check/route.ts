@@ -1,3 +1,7 @@
+// Endpoint para detectar secretarios que llevan 2 o más semanas consecutivas sin reportar.
+// n8n puede llamarlo semanalmente para que Julián identifique quién necesita un seguimiento personal.
+// Un secretario "flagged" es quien no reportó en 2 de los últimos 2 ciclos cerrados
+// Y que tampoco tenía ausencia registrada en esos períodos (no es excusa válida).
 import { NextRequest, NextResponse } from 'next/server';
 import { and, desc, eq, gte, inArray, lte } from 'drizzle-orm';
 import { db } from '@/db';

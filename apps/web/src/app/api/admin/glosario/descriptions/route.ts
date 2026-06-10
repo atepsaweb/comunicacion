@@ -1,3 +1,7 @@
+// Endpoint para guardar o actualizar la descripción de un término del glosario.
+// Las descripciones se almacenan en system_settings como un objeto JSON { término: descripción }.
+// Sirven para que Julián documente qué significa cada sigla o entidad,
+// lo que en un futuro puede usarse para enriquecer el prompt de la IA.
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { eq, sql } from 'drizzle-orm';

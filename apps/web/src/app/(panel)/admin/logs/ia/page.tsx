@@ -1,3 +1,11 @@
+// Página de logs de IA.
+// Solo accesible para el rol press_admin.
+// Muestra las últimas 200 llamadas a la API de Claude con:
+//   - Para qué tarea se usó (extracción, consolidado, publicación, etc.)
+//   - Qué modelo se usó y cuánto tardó
+//   - Cuántos tokens se usaron y cuánto costó en dólares
+//   - Si fue exitosa o falló
+// Permite monitorear el uso y el costo de la IA en el sistema.
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { desc } from 'drizzle-orm';

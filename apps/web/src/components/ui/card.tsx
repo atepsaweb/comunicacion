@@ -1,3 +1,8 @@
+// Componentes de tarjeta (Card) para agrupar contenido visualmente.
+// Una Card es un contenedor con bordes redondeados, fondo blanco y sombra sutil.
+// Se usan en todo el panel para mostrar métricas, formularios, listas, etc.
+// Partes: Card (contenedor), CardHeader (encabezado), CardTitle (título),
+//         CardDescription (subtítulo), CardContent (cuerpo del contenido).
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 

@@ -1,3 +1,10 @@
+// Prompts para generar los borradores de publicaciones para cada canal.
+// A partir del consolidado y los ítems marcados como "públicos" (is_public_safe=true),
+// Sonnet genera un texto adaptado al estilo y formato de cada canal:
+//   - Instagram: caption con hashtags y sugerencia visual
+//   - X (Twitter): hilo de 2-3 tweets de máximo 280 caracteres
+//   - Newsletter: artículo de 400-800 palabras para afiliados
+// Julián revisa y edita estos borradores antes de publicar.
 export const DRAFT_PUBLICATION_MODEL = 'claude-sonnet-4-6';
 
 // ─── Instagram ───────────────────────────────────────────────────────────────

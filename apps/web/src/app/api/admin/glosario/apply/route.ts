@@ -1,3 +1,10 @@
+// Endpoint para agregar términos del glosario al prompt de extracción de reportes.
+// Cuando Julián selecciona términos del glosario y los aplica, este endpoint:
+//   1. Toma el prompt activo de 'extract-report'
+//   2. Agrega los términos en la sección "VOCABULARIO FRECUENTE DETECTADO EN REPORTES"
+//   3. Crea una nueva versión del prompt con los términos agregados y la activa
+//   4. Desactiva la versión anterior
+// Esto mejora la capacidad de la IA de reconocer siglas y términos específicos del gremio.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq, max } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

@@ -1,3 +1,7 @@
+// Prompt para parsear las solicitudes de ausencia que llegan por WhatsApp.
+// Cuando un secretario avisa que está de vacaciones o que esta semana no puede reportar,
+// este prompt extrae las fechas y el tipo de ausencia del texto libre.
+// Resuelve fechas relativas ("la semana que viene", "del lunes al viernes") a fechas absolutas.
 export const PARSE_ABSENCE_SYSTEM = `Sos un parser de solicitudes de ausencia para el sistema de reporte semanal del Secretariado Nacional de ATEPSA, el sindicato argentino de los trabajadores de navegación aérea.
 
 Analizá el mensaje del secretario y determiná:

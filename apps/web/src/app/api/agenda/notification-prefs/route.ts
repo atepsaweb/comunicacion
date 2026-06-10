@@ -3,8 +3,8 @@
 //
 // Estructura del JSON de prefs:
 //   {
-//     "secretariat":  { "7d": bool, "24h": bool, "12h": bool, "2h": bool },
-//     "mobilization": { "7d": bool, "24h": bool, "12h": bool, "2h": bool }
+//     "secretariat":  { "7d": bool, "24h": bool, "12h": bool, "2h": bool, "0h": bool },
+//     "mobilization": { "7d": bool, "24h": bool, "12h": bool, "2h": bool, "0h": bool }
 //   }
 //
 // Ausencia de una clave = heredar reminder_config del evento (opt-out, no opt-in).
@@ -19,8 +19,9 @@ import * as schema from '@/db/schema';
 type ReminderPrefs = {
   '7d': boolean;
   '24h': boolean;
-  '12h': boolean;
+  '12h': boolean; // legacy
   '2h': boolean;
+  '0h': boolean;
 };
 
 type NotifPrefs = {

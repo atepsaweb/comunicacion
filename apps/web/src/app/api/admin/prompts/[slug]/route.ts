@@ -1,3 +1,7 @@
+// API para ver el historial de versiones de un prompt específico.
+// Devuelve todas las versiones de un slug (ej: 'extract-report'), enriquecidas con
+// el nombre del autor de cada versión. Sirve al panel de admin para mostrar el historial
+// y permitir activar versiones anteriores.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

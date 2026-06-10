@@ -11,8 +11,8 @@ import type { ReminderConfig } from '@/lib/ai/prompts/parse-event';
 
 const TYPE_LABEL: Record<string, string> = {
   personal:     'Personal',
-  secretariat:  'Secretariado',
-  mobilization: 'Movilización',
+  secretariat:  'Online',
+  mobilization: 'Presencial',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -40,8 +40,9 @@ const TYPE_COLOR: Record<string, string> = {
 const REMINDER_LABEL: [keyof ReminderConfig, string][] = [
   ['7d',      '7 días antes'],
   ['24h',     '24 horas antes'],
-  ['12h',     '12 horas antes'],
+  ['12h',     '12 horas antes'], // legacy: solo se muestra si un evento viejo lo tiene activo
   ['2h',      '2 horas antes'],
+  ['0h',      'Al momento del evento'],
   ['followup', '¿Cómo salió? (al día siguiente)'],
 ];
 

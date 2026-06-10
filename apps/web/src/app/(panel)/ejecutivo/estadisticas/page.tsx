@@ -1,3 +1,9 @@
+// Página de estadísticas ejecutivas.
+// Solo visible para roles executive y press_admin.
+// Muestra tres paneles:
+//   1. Resumen del ciclo actual (cuántos reportaron, cuántos no, licencias, pausas)
+//   2. Evolución semanal de participación en las últimas 12 semanas (barras horizontales)
+//   3. Las 5 categorías de ítems más frecuentes en los reportes (barras horizontales)
 import { getServerSession } from 'next-auth';
 import { redirect, notFound } from 'next/navigation';
 import { and, desc, eq, inArray } from 'drizzle-orm';

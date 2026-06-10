@@ -1,6 +1,10 @@
+// Funciones utilitarias generales usadas en todo el proyecto.
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+// Combina clases de CSS de Tailwind de forma inteligente, resolviendo conflictos
+// cuando se pasan múltiples clases que afectan la misma propiedad.
+// Se usa en todos los componentes visuales para construir clases condicionalmente.
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

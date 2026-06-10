@@ -1,3 +1,8 @@
+// API de gestión de usuarios para el administrador.
+// GET: devuelve la lista completa de usuarios (para el panel de admin)
+// POST: crea un nuevo usuario en el sistema
+// Solo el rol press_admin puede usar estos endpoints.
+// (Los usuarios se crean manualmente desde el panel, o en masa con el script seed.ts)
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';

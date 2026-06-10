@@ -1,3 +1,7 @@
+// Endpoint para notificar al secretario que envió un tipo de archivo no soportado.
+// Si un secretario manda, por ejemplo, un sticker, un video o un archivo .zip,
+// el sistema le responde explicando que no puede procesarlo y sugiere que lo mande
+// por texto o audio. Esto mejora la experiencia del usuario y evita mensajes perdidos.
 import { NextRequest, NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { db } from '@/db';

@@ -1,5 +1,9 @@
 'use client';
 
+// Página de ausencias del secretario.
+// Permite al usuario registrar sus propias ausencias (vacaciones, licencias, pausas semanales)
+// para que el sistema no le envíe recordatorios y no lo marque como "no reportó".
+// También muestra la lista de ausencias ya registradas y permite cancelarlas.
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
