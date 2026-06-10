@@ -78,9 +78,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   {
     const textNorm = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const isAgendaVerb =
-      /\bagendar/.test(textNorm)     // agendar, agendarme, agendarte, agendarnos...
-      || /\bagendame\b/.test(textNorm) // agendame (imperativo coloquial)
-      || /\bprogramar\b/.test(textNorm); // programar una reunión
+      /\bagendar/.test(textNorm)        // agendar, agendarme, agendarte, agendarnos...
+      || /\bagendame\b/.test(textNorm)  // agendame (imperativo coloquial)
+      || /\bprogramar\b/.test(textNorm) // programar una reunión
+      // "agenda que [fecha/evento]" → imperativo rioplatense sin tilde
+      || /\bagenda\s+que\b/.test(textNorm)
+      // "agenda [evento] para [fecha]" / "agenda [fecha] [hora]"
+      || /\bagenda\s+(esto|eso|esto para|para el|una reunión|la reunión|el evento|para mañana|para hoy|para el (lunes|martes|miércoles|jueves|viernes|sábado|domingo))/.test(textNorm);
 
     if (isAgendaVerb) {
       await db
