@@ -1,13 +1,18 @@
 // Hook central del módulo Agenda.
 // Llamar cada vez que un evento transiciona a status='confirmed'.
 //
-// Responsabilidades:
-//   1. Para secretariat/mobilization: generar event_attendees + enviar convocatoria por WhatsApp
-//   2. Para todos los tipos: programar notificaciones (recordatorios + followup) en event_notifications
+// Responsabilidades (modelo 2026-06-09: convocatoria dirigida, no masiva):
+//   1. Asegurar la fila del creador en event_attendees (status='going').
+//      Esa fila funciona además como guard de doble ejecución.
+//   2. Enviar invitación con botones SOLO a los convocados pre-creados
+//      (los "mencionados" que detectó parse-event o se eligieron en el panel).
+//   3. Para eventos institucionales (secretariat/mobilization): aviso informativo
+//      a press_admin. El resto del Secretariado lo ve en el panel/calendario.
+//   4. Programar recordatorios + followup en event_notifications para creador y convocados.
 //
 // Errores de WhatsApp (externos) se capturan y loguean: no son fatales.
 // Errores de DB burbujean: el llamador debe manejarlos si necesita.
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
@@ -84,79 +89,130 @@ export async function onEventConfirmed(eventId: string): Promise<void> {
 
   // Safe cast: type enum values match the interface
   const ev = event as EventRow;
-  const isGroupEvent = ev.type === 'secretariat' || ev.type === 'mobilization';
 
-  if (isGroupEvent) {
-    await generateAttendeesAndInvite(ev);
+  // Guard de doble ejecución: la fila del creador en event_attendees se crea acá.
+  // Si ya existe, este hook ya corrió (ej: doble tap del botón, reproceso).
+  const creatorRow = await db.query.eventAttendees.findFirst({
+    where: and(
+      eq(schema.eventAttendees.event_id, ev.id),
+      eq(schema.eventAttendees.user_id, ev.created_by),
+    ),
+    columns: { id: true },
+  });
+  if (creatorRow) {
+    logger.info({ eventId: ev.id }, 'onEventConfirmed: ya procesado (fila del creador existe), saltando');
+    return;
+  }
+
+  await db.insert(schema.eventAttendees).values({
+    id: uuidv7(),
+    event_id: ev.id,
+    user_id: ev.created_by,
+    status: 'going',
+    responded_at: new Date(),
+    response_source: 'whatsapp',
+  });
+
+  await inviteMentionedAttendees(ev);
+
+  if (ev.type === 'secretariat' || ev.type === 'mobilization') {
+    await notifyPressAdmins(ev);
   }
 
   await scheduleNotifications(ev);
 }
 
-// ─── Generación de convocados + envío de invitaciones ────────────────────────
+// ─── Invitación a los convocados pre-creados (mencionados) ────────────────────
 
-async function generateAttendeesAndInvite(event: EventRow): Promise<void> {
-  // Guardia contra doble ejecución: si ya hay convocados, saltar
-  const existing = await db
-    .select({ id: schema.eventAttendees.id })
-    .from(schema.eventAttendees)
-    .where(eq(schema.eventAttendees.event_id, event.id))
-    .limit(1);
-
-  if (existing.length > 0) {
-    logger.info({ eventId: event.id }, 'onEventConfirmed: convocados ya generados, saltando');
-    return;
-  }
-
-  // Todos los usuarios activos del secretariado + ejecutiva
-  const activeUsers = await db
+async function inviteMentionedAttendees(event: EventRow): Promise<void> {
+  // Convocados pre-creados por parse-event (o el panel), excluyendo al creador
+  const attendees = await db
     .select({
-      id: schema.users.id,
+      attendee_id: schema.eventAttendees.id,
+      user_id: schema.eventAttendees.user_id,
       phone_e164: schema.users.phone_e164,
     })
+    .from(schema.eventAttendees)
+    .innerJoin(schema.users, eq(schema.eventAttendees.user_id, schema.users.id))
+    .where(
+      and(
+        eq(schema.eventAttendees.event_id, event.id),
+        eq(schema.eventAttendees.status, 'invited'),
+        ne(schema.eventAttendees.user_id, event.created_by),
+        eq(schema.users.is_active, true),
+        isNull(schema.users.deleted_at),
+      ),
+    );
+
+  if (attendees.length === 0) return;
+
+  const eventDateISO = toARTDateISO(event.starts_at);
+  const dateStr = formatARTShort(event.starts_at, event.all_day);
+  const locationLine = event.location ? `\n📍 ${event.location}` : '';
+  const typeLabel = event.type === 'mobilization' ? 'Evento presencial' : event.type === 'secretariat' ? 'Evento online' : 'Evento';
+
+  let sentCount = 0;
+  for (const a of attendees) {
+    const onLeave = await isUserOnLeave(a.user_id, eventDateISO);
+    if (onLeave) {
+      await db.update(schema.eventAttendees)
+        .set({ status: 'on_leave', updated_at: new Date() })
+        .where(eq(schema.eventAttendees.id, a.attendee_id));
+      continue;
+    }
+    await sendInvitation(event, a.phone_e164, dateStr, locationLine, typeLabel);
+    sentCount++;
+  }
+
+  logger.info(
+    { eventId: event.id, attendees: attendees.length, sent: sentCount },
+    'onEventConfirmed: invitaciones enviadas a convocados',
+  );
+}
+
+// ─── Aviso informativo a Prensa (press_admin) ─────────────────────────────────
+
+async function notifyPressAdmins(event: EventRow): Promise<void> {
+  const admins = await db
+    .select({ id: schema.users.id, phone_e164: schema.users.phone_e164 })
     .from(schema.users)
     .where(
       and(
         eq(schema.users.is_active, true),
         isNull(schema.users.deleted_at),
-        inArray(schema.users.role, ['secretary', 'executive'] as const),
+        eq(schema.users.role, 'press_admin' as const),
+        ne(schema.users.id, event.created_by), // si lo creó Prensa, no auto-avisarse
       ),
     );
 
-  if (activeUsers.length === 0) return;
+  if (admins.length === 0) return;
 
-  const eventDateISO = toARTDateISO(event.starts_at);
+  const creator = await db.query.users.findFirst({
+    where: eq(schema.users.id, event.created_by),
+    columns: { full_name: true },
+  });
+
   const dateStr = formatARTShort(event.starts_at, event.all_day);
   const locationLine = event.location ? `\n📍 ${event.location}` : '';
-  const typeLabel = event.type === 'mobilization' ? 'Evento presencial' : 'Evento online';
+  const typeLabel = event.type === 'mobilization' ? 'presencial' : 'online';
 
-  const attendeeRows: (typeof schema.eventAttendees.$inferInsert)[] = [];
-  const invitedPhones: string[] = [];
+  const body =
+    `🗓 *Nuevo evento ${typeLabel} agendado*\n\n` +
+    `*${event.title}*\n📅 ${dateStr}${locationLine}\n` +
+    `_Creado por ${creator?.full_name ?? 'un secretario'}_`;
 
-  for (const u of activeUsers) {
-    const onLeave = await isUserOnLeave(u.id, eventDateISO);
-    attendeeRows.push({
-      id: uuidv7(),
-      event_id: event.id,
-      user_id: u.id,
-      status: onLeave ? 'on_leave' : 'invited',
-    });
-    if (!onLeave) invitedPhones.push(u.phone_e164);
+  for (const admin of admins) {
+    await sendWhatsAppTemplate(
+      admin.phone_e164,
+      'agenda_invitation',
+      { title: event.title, date: dateStr, location: event.location ?? '' },
+      body,
+    ).catch(err =>
+      logger.warn({ err, eventId: event.id, adminId: admin.id }, 'onEventConfirmed: fallo aviso a press_admin (no fatal)'),
+    );
   }
 
-  await db.insert(schema.eventAttendees).values(attendeeRows);
-
-  // Enviar convocatoria a los que no están de licencia
-  let sentCount = 0;
-  for (const phone of invitedPhones) {
-    await sendInvitation(event, phone, dateStr, locationLine, typeLabel);
-    sentCount++;
-  }
-
-  logger.info(
-    { eventId: event.id, total: activeUsers.length, invited: invitedPhones.length, sent: sentCount },
-    'onEventConfirmed: convocados generados e invitaciones enviadas',
-  );
+  logger.info({ eventId: event.id, admins: admins.length }, 'onEventConfirmed: aviso a Prensa enviado');
 }
 
 async function sendInvitation(
@@ -219,24 +275,18 @@ async function scheduleNotifications(event: EventRow): Promise<void> {
   }
 
   const now = new Date();
-  const isGroupEvent = event.type === 'secretariat' || event.type === 'mobilization';
 
-  // Destinatarios: convocados (sin on_leave) para eventos grupales, creador para personal
-  let recipientIds: string[];
-  if (isGroupEvent) {
-    const attendees = await db
-      .select({ user_id: schema.eventAttendees.user_id })
-      .from(schema.eventAttendees)
-      .where(
-        and(
-          eq(schema.eventAttendees.event_id, event.id),
-          eq(schema.eventAttendees.status, 'invited'),
-        ),
-      );
-    recipientIds = attendees.map(a => a.user_id);
-  } else {
-    recipientIds = [event.created_by];
-  }
+  // Destinatarios: creador ('going') + convocados que no estén de licencia ni hayan rechazado
+  const attendees = await db
+    .select({ user_id: schema.eventAttendees.user_id })
+    .from(schema.eventAttendees)
+    .where(
+      and(
+        eq(schema.eventAttendees.event_id, event.id),
+        inArray(schema.eventAttendees.status, ['invited', 'going', 'maybe'] as const),
+      ),
+    );
+  const recipientIds = attendees.map(a => a.user_id);
 
   if (recipientIds.length === 0) return;
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { and, or, eq, gte, lte, ne } from 'drizzle-orm';
+import { and, eq, gte, lte, ne } from 'drizzle-orm';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
@@ -30,31 +30,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Fechas inválidas' }, { status: 400 });
   }
 
-  const userId = session.user.id;
-  const role = session.user.role;
-
   const dateFilter = and(
     gte(schema.events.starts_at, fromDate),
     lte(schema.events.starts_at, toDate),
   );
-  const notPending = ne(schema.events.status, 'pending_confirmation' as const);
 
-  const visibilityFilter =
-    role === 'press_admin' || role === 'executive'
-      ? notPending
-      : and(
-          notPending,
-          or(
-            eq(schema.events.created_by, userId),
-            and(
-              ne(schema.events.type, 'personal' as const),
-              or(
-                eq(schema.events.status, 'confirmed' as const),
-                eq(schema.events.status, 'done' as const),
-              ),
-            ),
-          ),
-        );
+  // Visibilidad total (2026-06-09): todos los eventos son públicos para el
+  // Secretariado — el objetivo es optimizar la comunicación interna.
+  // Solo se ocultan los pending_confirmation (borradores de WhatsApp sin confirmar).
+  const visibilityFilter = ne(schema.events.status, 'pending_confirmation' as const);
 
   const rows = await db
     .select({

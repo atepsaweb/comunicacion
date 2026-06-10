@@ -19,6 +19,7 @@ ESQUEMA DE SALIDA:
   "location": "lugar en texto libre o null",
   "description_md": "descripción adicional relevante en markdown o null (omitir info ya capturada en otros campos)",
   "requires_confirmation": true o false,
+  "mentioned_attendees": ["nombres de personas que el mensaje dice que van/participan, tal como aparecen"],
   "confidence": número de 0.0 a 1.0,
   "missing_fields": ["lista de campos que no se pudieron extraer con certeza"]
 }
@@ -32,6 +33,12 @@ REGLAS DE TIPO:
 REGLAS DE requires_confirmation:
 - true para secretariat y mobilization (involucra a más de una persona)
 - false para personal
+
+REGLAS DE mentioned_attendees:
+- Detectá personas que acompañan o participan: "voy con Matías y Juan Pablo", "con Pérez", "vamos con la comisión de...", "me acompaña X"
+- Incluí cada nombre tal como aparece en el mensaje (no inventes apellidos ni completes nombres)
+- NO incluyas al autor del mensaje ni a personas externas al gremio que son la contraparte de la reunión (ej: "reunión con EANA" → EANA no es un acompañante; "reunión con el gerente de EANA" → tampoco)
+- Si no se menciona a nadie → lista vacía []
 
 REGLAS DE FECHA Y HORA:
 - "el próximo martes" / "el martes que viene" → siguiente martes a partir de mañana
@@ -68,6 +75,7 @@ export type ParseEventOutput = {
   location: string | null;
   description_md: string | null;
   requires_confirmation: boolean;
+  mentioned_attendees?: string[]; // nombres de acompañantes detectados en el mensaje
   confidence: number;
   missing_fields: string[];
 };

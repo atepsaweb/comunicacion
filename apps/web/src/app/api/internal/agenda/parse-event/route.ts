@@ -8,7 +8,7 @@
 //   4. Crea el evento con status='pending_confirmation'
 //   5. Envía un mensaje interactivo con los datos parseados y botones [Sí / Editar / Cancelar]
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import { uuidv7 } from 'uuidv7';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
@@ -69,6 +69,70 @@ const TYPE_LABELS: Record<string, string> = {
   secretariat: 'Online 💻',
   mobilization: 'Presencial 📍',
 };
+
+// ─── Resolución de acompañantes mencionados ───────────────────────────────────
+
+/** Normaliza para comparar: minúsculas y sin tildes. */
+function normalizeName(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+
+type ResolvedAttendee = { userId: string; fullName: string };
+type AttendeeResolution = {
+  resolved: ResolvedAttendee[];
+  unresolved: string[]; // nombres que no matchearon o matchearon a más de uno
+};
+
+/**
+ * Matchea los nombres mencionados contra los usuarios activos del sistema.
+ * Un nombre resuelve si matchea exactamente UN usuario (por nombre, apellido o
+ * nombre completo, sin tildes). Ambiguo o sin match → queda en unresolved.
+ */
+async function resolveMentionedAttendees(
+  names: string[],
+  creatorId: string,
+): Promise<AttendeeResolution> {
+  if (names.length === 0) return { resolved: [], unresolved: [] };
+
+  const activeUsers = await db
+    .select({ id: schema.users.id, full_name: schema.users.full_name })
+    .from(schema.users)
+    .where(and(
+      eq(schema.users.is_active, true),
+      isNull(schema.users.deleted_at),
+      ne(schema.users.id, creatorId),
+    ));
+
+  const resolved: ResolvedAttendee[] = [];
+  const unresolved: string[] = [];
+  const seen = new Set<string>();
+
+  for (const rawName of names) {
+    const needle = normalizeName(rawName);
+    if (!needle) continue;
+
+    const matches = activeUsers.filter(u => {
+      const full = normalizeName(u.full_name);
+      if (full === needle) return true;
+      // Match por palabra completa: "matias" matchea "Matías Pérez" pero no "Matilde"
+      const words = full.split(/\s+/);
+      const needleWords = needle.split(/\s+/);
+      return needleWords.every(nw => words.some(w => w === nw));
+    });
+
+    if (matches.length === 1) {
+      const m = matches[0]!;
+      if (!seen.has(m.id)) {
+        resolved.push({ userId: m.id, fullName: m.full_name });
+        seen.add(m.id);
+      }
+    } else {
+      unresolved.push(rawName);
+    }
+  }
+
+  return { resolved, unresolved };
+}
 
 // ─── Reminder config ──────────────────────────────────────────────────────────
 
@@ -187,6 +251,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ clarificationSent: true, confidence: parsed.confidence });
   }
 
+  // Resolver acompañantes mencionados ("voy con Matías y Juan Pablo")
+  const attendeeRes = await resolveMentionedAttendees(parsed.mentioned_attendees ?? [], user.id);
+
   // Crear el evento con status='pending_confirmation'
   const reminderConfig = await getDefaultReminderConfig(parsed.type);
   const eventId = uuidv7();
@@ -208,18 +275,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     source: 'whatsapp',
   });
 
-  logger.info({ eventId, userId: user.id, title: parsed.title, type: parsed.type }, 'parse-event: event created pending_confirmation');
+  // Pre-crear los convocados resueltos. La invitación con botones se envía recién
+  // cuando el creador confirma el evento (onEventConfirmed).
+  if (attendeeRes.resolved.length > 0) {
+    await db.insert(schema.eventAttendees).values(
+      attendeeRes.resolved.map(a => ({
+        id: uuidv7(),
+        event_id: eventId,
+        user_id: a.userId,
+        status: 'invited' as const,
+      })),
+    );
+  }
+
+  logger.info(
+    { eventId, userId: user.id, title: parsed.title, type: parsed.type, attendees: attendeeRes.resolved.length, unresolvedNames: attendeeRes.unresolved },
+    'parse-event: event created pending_confirmation',
+  );
 
   // Formatear mensaje de confirmación
   const dateFormatted = formatDateForMessage(parsed.starts_at, parsed.all_day);
   const locationLine = parsed.location ? `📍 ${parsed.location}` : '📍 Sin especificar';
-  const typeLine = `👥 ${TYPE_LABELS[parsed.type] ?? parsed.type}`;
+  const typeLine = `🏷 ${TYPE_LABELS[parsed.type] ?? parsed.type}`;
+
+  const attendeesLine = attendeeRes.resolved.length > 0
+    ? `\n👥 Con: ${attendeeRes.resolved.map(a => a.fullName).join(', ')} (les aviso al confirmar)`
+    : '';
+  const unresolvedLine = attendeeRes.unresolved.length > 0
+    ? `\n⚠️ No encontré en el Secretariado a: ${attendeeRes.unresolved.join(', ')}. Si querés convocarlos, tocá Editar y nombralos con apellido.`
+    : '';
 
   const warningLine = parsed.missing_fields.length > 0 && !parsed.missing_fields.includes('starts_at')
     ? `\n⚠️ Faltó: ${parsed.missing_fields.join(', ')}`
     : '';
 
-  const confirmBody = `*${parsed.title}*\n📅 ${dateFormatted}\n${locationLine}\n${typeLine}${warningLine}`;
+  const confirmBody = `*${parsed.title}*\n📅 ${dateFormatted}\n${locationLine}\n${typeLine}${attendeesLine}${unresolvedLine}${warningLine}`;
 
   // Enviar mensaje interactivo con botones
   const sendResult = await sendWhatsAppInteractive(

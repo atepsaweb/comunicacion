@@ -111,17 +111,14 @@ export default async function EventoDetailPage({ params }: PageProps) {
   const isOwner = row.created_by === userId;
   const isAdmin = role === 'press_admin';
   const isAdminOrExec = isAdmin || role === 'executive';
-  const isPublic =
-    row.type !== 'personal' &&
-    (row.status === 'confirmed' || row.status === 'done' || row.status === 'proposed');
 
-  if (!isOwner && !isAdminOrExec && !isPublic) notFound();
+  // Visibilidad total (2026-06-09): todos los eventos son públicos para el
+  // Secretariado. Solo los pending_confirmation (borradores) son privados del creador.
+  if (row.status === 'pending_confirmation' && !isOwner && !isAdmin) notFound();
 
-  // Cargar convocados si es un evento grupal con tablero visible
+  // Tablero de convocados: visible para cualquiera en eventos confirmados/finalizados
   const showAttendees =
-    (row.type === 'secretariat' || row.type === 'mobilization') &&
-    (row.status === 'confirmed' || row.status === 'done') &&
-    (isOwner || isAdminOrExec);
+    row.status === 'confirmed' || row.status === 'done';
 
   let attendees: AttendeeRow[] = [];
   if (showAttendees) {

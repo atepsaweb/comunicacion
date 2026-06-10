@@ -3,12 +3,13 @@
 // El token es la única protección de acceso: no se requiere sesión.
 //
 // Responde con Content-Type: text/calendar y cabeceras de cache (15 min, ETag).
-// El scope del token determina qué eventos se incluyen:
-//   all          → eventos propios (personal) + secretariat/mobilization confirmados/done
-//   secretariat  → solo secretariat/mobilization confirmados/done (sin personales)
-//   personal     → solo eventos personales del usuario
+// El scope del token determina qué eventos se incluyen (visibilidad total 2026-06-09:
+// todos los eventos son públicos para el Secretariado):
+//   all          → todos los eventos del sistema (personales de cualquiera + institucionales)
+//   secretariat  → solo secretariat/mobilization confirmados/done
+//   personal     → solo eventos personales del usuario dueño del token
 import { NextRequest, NextResponse } from 'next/server';
-import { and, eq, isNull, inArray, ne, or } from 'drizzle-orm';
+import { and, eq, isNull, inArray, ne } from 'drizzle-orm';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { buildIcalFeed, type IcalEvent } from '@/lib/ical';
@@ -57,21 +58,8 @@ export async function GET(
       inArray(schema.events.status, ['confirmed', 'done'] as const),
     );
   } else {
-    // all
-    visibilityFilter = and(
-      notPending,
-      notCancelled,
-      or(
-        and(
-          eq(schema.events.type, 'personal' as const),
-          eq(schema.events.created_by, userId),
-        ),
-        and(
-          inArray(schema.events.type, ['secretariat', 'mobilization'] as const),
-          inArray(schema.events.status, ['confirmed', 'done'] as const),
-        ),
-      ),
-    );
+    // all: todos los eventos del sistema (visibilidad total para el Secretariado)
+    visibilityFilter = and(notPending, notCancelled);
   }
 
   const rows = await db
