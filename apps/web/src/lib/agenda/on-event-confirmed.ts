@@ -258,20 +258,22 @@ const REMINDER_OFFSETS: ReminderEntry[] = [
   ['0h',  'reminder_0h',  0],
 ];
 
-async function scheduleNotifications(event: EventRow): Promise<void> {
+async function scheduleNotifications(event: EventRow, opts?: { skipGuard?: boolean }): Promise<void> {
   const remConf = event.reminder_config as ReminderConfig | null;
   if (!remConf) return;
 
-  // Guardia contra doble ejecución
-  const existing = await db
-    .select({ id: schema.eventNotifications.id })
-    .from(schema.eventNotifications)
-    .where(eq(schema.eventNotifications.event_id, event.id))
-    .limit(1);
+  // Guardia contra doble ejecución (se saltea en reprogramaciones)
+  if (!opts?.skipGuard) {
+    const existing = await db
+      .select({ id: schema.eventNotifications.id })
+      .from(schema.eventNotifications)
+      .where(eq(schema.eventNotifications.event_id, event.id))
+      .limit(1);
 
-  if (existing.length > 0) {
-    logger.info({ eventId: event.id }, 'onEventConfirmed: notificaciones ya programadas, saltando');
-    return;
+    if (existing.length > 0) {
+      logger.info({ eventId: event.id }, 'onEventConfirmed: notificaciones ya programadas, saltando');
+      return;
+    }
   }
 
   const now = new Date();
@@ -329,4 +331,41 @@ async function scheduleNotifications(event: EventRow): Promise<void> {
     { eventId: event.id, count: notifications.length, recipients: recipientIds.length },
     'onEventConfirmed: notificaciones programadas',
   );
+}
+
+// ─── Reprogramación tras edición ──────────────────────────────────────────────
+
+/**
+ * Reprograma las notificaciones pendientes de un evento confirmado.
+ * Llamar cuando se edita la fecha o el reminder_config desde el panel:
+ * borra las pending (las sent/skipped quedan como log) y regenera con los datos nuevos.
+ */
+export async function rescheduleNotifications(eventId: string): Promise<void> {
+  const event = await db.query.events.findFirst({
+    where: eq(schema.events.id, eventId),
+    columns: {
+      id: true,
+      title: true,
+      type: true,
+      starts_at: true,
+      ends_at: true,
+      all_day: true,
+      location: true,
+      created_by: true,
+      requires_confirmation: true,
+      is_important: true,
+      reminder_config: true,
+    },
+  });
+  if (!event) return;
+
+  await db.delete(schema.eventNotifications).where(
+    and(
+      eq(schema.eventNotifications.event_id, eventId),
+      eq(schema.eventNotifications.status, 'pending'),
+    ),
+  );
+
+  await scheduleNotifications(event as EventRow, { skipGuard: true });
+  logger.info({ eventId }, 'rescheduleNotifications: notificaciones regeneradas');
 }

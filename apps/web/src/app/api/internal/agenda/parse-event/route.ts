@@ -275,6 +275,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     source: 'whatsapp',
   });
 
+  // Consumir clarificaciones pendientes: el alta llegó a buen puerto, así que el
+  // próximo mensaje del usuario ya no debe enrutarse automáticamente a event_create.
+  await db.update(schema.outboundMessages)
+    .set({ purpose: 'other' })
+    .where(and(
+      eq(schema.outboundMessages.user_id, user.id),
+      eq(schema.outboundMessages.purpose, 'event_clarification'),
+    ));
+
   // Pre-crear los convocados resueltos. La invitación con botones se envía recién
   // cuando el creador confirma el evento (onEventConfirmed).
   if (attendeeRes.resolved.length > 0) {

@@ -146,12 +146,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     if (action === 'edit_event') {
-      // Borrado del pending + pedido de redescripción; el próximo mensaje del usuario
-      // se clasificará como event_create y disparará parse-event de nuevo
+      // Borrado del pending + pedido de redescripción
       await db.delete(schema.events).where(
         and(eq(schema.events.id, entityId), eq(schema.events.status, 'pending_confirmation'))
       );
-      await sendWhatsAppText(user.phone_e164, 'De acuerdo. Contame de nuevo el evento con título, fecha, hora y lugar.').catch(() => undefined);
+
+      // Registrar el pedido como event_clarification: el fast-path de classify-intent
+      // lo lee para enrutar la próxima respuesta del usuario a event_create aunque
+      // no contenga el verbo "agendar" (ej: "voy con Paola y Ricardo").
+      const editPrompt = 'De acuerdo. Contame de nuevo el evento completo: título, fecha, hora, lugar y con quién vas.';
+      try {
+        const sendResult = await sendWhatsAppText(user.phone_e164, editPrompt);
+        await db.insert(schema.outboundMessages).values({
+          provider: sendResult.provider,
+          provider_message_id: sendResult.providerMessageId,
+          to_phone_e164: user.phone_e164,
+          user_id: user.id,
+          cycle_id: message.cycle_id ?? null,
+          purpose: 'event_clarification',
+          body: editPrompt,
+          sent_at: new Date(),
+          delivery_status: 'sent',
+        });
+      } catch (err) {
+        logger.warn({ err, userId: user.id }, 'edit_event: fallo al enviar pedido de redescripción (no fatal)');
+      }
 
       logger.info({ eventId: entityId, userId: user.id }, 'button-reply: evento devuelto a edición');
       await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));

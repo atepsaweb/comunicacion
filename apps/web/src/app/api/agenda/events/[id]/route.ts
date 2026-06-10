@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import type { ReminderConfig } from '@/lib/ai/prompts/parse-event';
-import { onEventConfirmed } from '@/lib/agenda/on-event-confirmed';
+import { onEventConfirmed, rescheduleNotifications } from '@/lib/agenda/on-event-confirmed';
 import { logger } from '@/lib/logger';
 
 export async function GET(
@@ -46,12 +46,9 @@ export async function GET(
 
   const { id: userId, role } = session.user;
   const isOwner = row.created_by === userId;
-  const isAdminOrExec = role === 'press_admin' || role === 'executive';
-  const isPublic =
-    row.type !== 'personal' &&
-    (row.status === 'confirmed' || row.status === 'done' || row.status === 'proposed');
 
-  if (!isOwner && !isAdminOrExec && !isPublic) {
+  // Visibilidad total (2026-06-09): solo los borradores sin confirmar son privados
+  if (row.status === 'pending_confirmation' && !isOwner && role !== 'press_admin') {
     return NextResponse.json({ error: 'No tenés acceso a este evento' }, { status: 403 });
   }
 
@@ -141,6 +138,15 @@ export async function PATCH(
   if (isApproving) {
     onEventConfirmed(params.id).catch(err =>
       logger.error({ err, eventId: params.id }, 'PATCH /api/agenda/events/[id]: error en onEventConfirmed'),
+    );
+  } else if (
+    existing.status === 'confirmed' &&
+    (updates.starts_at !== undefined || updates.reminder_config !== undefined)
+  ) {
+    // Cambió la fecha o los recordatorios de un evento ya confirmado:
+    // regenerar las notificaciones pendientes con los datos nuevos
+    rescheduleNotifications(params.id).catch(err =>
+      logger.error({ err, eventId: params.id }, 'PATCH /api/agenda/events/[id]: error en rescheduleNotifications'),
     );
   }
 
