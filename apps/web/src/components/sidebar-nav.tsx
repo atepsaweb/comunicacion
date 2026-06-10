@@ -36,7 +36,7 @@ const navItems: NavItem[] = [
   { label: 'Estadísticas',       href: '/ejecutivo/estadisticas',     icon: TrendingUp,     roles: ['executive', 'press_admin'] },
   { label: 'Mensajes (live)',    href: '/admin/mensajes',             icon: Inbox,          roles: ['press_admin'],  dividerBefore: true },
   { label: 'Usuarios',           href: '/admin/usuarios',             icon: Users,          roles: ['press_admin'] },
-  { label: 'Afiliados',          href: '/admin/afiliados',            icon: Users,          roles: ['press_admin'] },
+  { label: 'Delegados',          href: '/admin/afiliados',            icon: Users,          roles: ['press_admin'] },
   { label: 'Ausencias (Admin)',  href: '/admin/ausencias',            icon: ShieldCheck,    roles: ['press_admin'] },
   { label: 'Prompts IA',         href: '/admin/prompts',              icon: MessageSquare,  roles: ['press_admin'] },
   { label: 'Glosario IA',        href: '/admin/glosario',             icon: BookOpen,       roles: ['press_admin'] },
