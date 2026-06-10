@@ -38,7 +38,12 @@ function formatDate(iso: string): string {
 }
 
 function getBaseUrl(): string {
-  if (typeof window !== 'undefined') return window.location.origin;
+  if (typeof window !== 'undefined') {
+    // Forzar HTTPS: Apple Calendar y otros clientes rechazan suscripciones HTTP.
+    // Si el usuario llegó al panel por HTTP (sin redirect), la URL generada igual
+    // debe ser HTTPS para que la suscripción funcione.
+    return window.location.origin.replace(/^http:\/\//, 'https://');
+  }
   return '';
 }
 
