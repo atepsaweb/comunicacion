@@ -69,11 +69,6 @@ function formatDateForMessage(isoString: string, allDay: boolean): string {
   return `${capitalized}, ${timePart} hs`;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  personal: 'Personal',
-  secretariat: 'Online 💻',
-  mobilization: 'Presencial 📍',
-};
 
 // ─── Resolución de acompañantes mencionados ───────────────────────────────────
 
@@ -464,38 +459,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     'parse-event: event created pending_confirmation',
   );
 
-  // Formatear mensaje de confirmación
+  // Preguntar el tipo explícitamente antes de confirmar: la IA puede equivocarse.
+  // El usuario elige con botones y recién entonces ve el mensaje de confirmación completo.
   const dateFormatted = formatDateForMessage(parsed.starts_at, parsed.all_day);
-  const locationIcon = parsed.type === 'secretariat' ? '🔗' : '📍';
-  const locationFallback = parsed.type === 'secretariat' ? '🔗 Sin link aún' : '📍 Sin lugar especificado';
-  const locationLine = parsed.location ? `${locationIcon} ${parsed.location}` : locationFallback;
-  const typeLine = `🏷 ${TYPE_LABELS[parsed.type] ?? parsed.type}`;
-
-  const attendeesLine = attendeeRes.resolved.length > 0
-    ? `\n👥 Con: ${attendeeRes.resolved.map(a => a.fullName).join(', ')} (les aviso al confirmar)`
-    : '';
   const unresolvedLine = attendeeRes.unresolved.length > 0
     ? `\n⚠️ No encontré en el Secretariado a: ${attendeeRes.unresolved.join(', ')}. Si querés convocarlos, tocá Editar y nombralos con apellido.`
     : '';
 
-  // missing_fields no se muestra al usuario: el mensaje de confirmación ya expone
-  // todos los datos extraídos y el usuario puede tocar Editar si algo está mal.
+  const typeBody = `*${parsed.title}*\n📅 ${dateFormatted}${unresolvedLine}\n\n¿Qué tipo de evento es?`;
 
-  const confirmBody = `*${parsed.title}*\n📅 ${dateFormatted}\n${locationLine}\n${typeLine}${attendeesLine}${unresolvedLine}`;
-
-  // Enviar mensaje interactivo con botones
   const sendResult = await sendWhatsAppInteractive(
     user.phone_e164,
-    confirmBody,
+    typeBody,
     [
-      { id: `confirm_event:${eventId}`, title: '✅ Sí, agendar' },
-      { id: `edit_event:${eventId}`,   title: '✏️ Editar' },
-      { id: `cancel_event:${eventId}`, title: '❌ Cancelar' },
+      { id: `set_event_type:${eventId}:personal`,     title: '🙋 Personal' },
+      { id: `set_event_type:${eventId}:secretariat`,  title: '💻 Online' },
+      { id: `set_event_type:${eventId}:mobilization`, title: '📍 Presencial' },
     ],
-    '¿Agendamos esto?',
+    'Tipo de evento',
   );
 
-  // Registrar mensaje saliente
   await db.insert(schema.outboundMessages).values({
     provider: sendResult.provider,
     provider_message_id: sendResult.providerMessageId,
@@ -503,15 +486,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     user_id: user.id,
     cycle_id: message.cycle_id ?? null,
     purpose: 'other',
-    body: confirmBody,
+    body: typeBody,
     sent_at: new Date(),
     delivery_status: 'sent',
   });
 
-  // Marcar mensaje como procesado
   await db.update(schema.inboundMessages)
     .set({ processed_at: new Date() })
     .where(eq(schema.inboundMessages.id, messageId));
 
-  return NextResponse.json({ eventId, status: 'pending_confirmation', confirmationSent: true });
+  return NextResponse.json({ eventId, status: 'pending_confirmation', typeSelectionSent: true });
 }

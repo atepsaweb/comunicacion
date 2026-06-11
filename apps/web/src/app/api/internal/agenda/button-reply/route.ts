@@ -19,6 +19,8 @@ import { validateInternalSecret } from '@/lib/internal-auth';
 import { sendWhatsAppText } from '@/lib/whatsapp';
 import { logger } from '@/lib/logger';
 import { onEventConfirmed } from '@/lib/agenda/on-event-confirmed';
+import { sendEventConfirmation } from '@/lib/agenda/send-event-confirmation';
+import { REMINDER_DEFAULTS } from '@/lib/ai/prompts/parse-event';
 
 type Body = { messageId: string };
 
@@ -212,6 +214,55 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
       return NextResponse.json({ eventId: entityId, status: 'editing' });
     }
+  }
+
+  // ─── Selección de tipo de evento ──────────────────────────────────────────
+  // Payload: set_event_type:<eventId>:<type>
+  // La entityId contiene eventId:type (el action ya se separó en el primer ':').
+
+  if (action === 'set_event_type') {
+    const lastColon = entityId.lastIndexOf(':');
+    if (lastColon === -1) {
+      logger.warn({ messageId, entityId }, 'button-reply: set_event_type formato inválido');
+      await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
+      return NextResponse.json({ error: 'Invalid payload' }, { status: 422 });
+    }
+
+    const eventId = entityId.slice(0, lastColon);
+    const newType = entityId.slice(lastColon + 1);
+
+    if (!['personal', 'secretariat', 'mobilization'].includes(newType)) {
+      logger.warn({ messageId, newType }, 'button-reply: tipo de evento inválido');
+      await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
+      return NextResponse.json({ error: 'Invalid type' }, { status: 422 });
+    }
+
+    const event = await db.query.events.findFirst({
+      where: eq(schema.events.id, eventId),
+      columns: { id: true, status: true, created_by: true },
+    });
+
+    if (!event || event.created_by !== user.id || event.status !== 'pending_confirmation') {
+      await sendWhatsAppText(user.phone_e164, 'No encontré ese evento o ya fue procesado.').catch(() => undefined);
+      await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
+      return NextResponse.json({ received: true, note: 'not found or already processed' });
+    }
+
+    const typedType = newType as 'personal' | 'secretariat' | 'mobilization';
+    const reminderConfig = REMINDER_DEFAULTS[typedType] ?? REMINDER_DEFAULTS.personal;
+
+    await db.update(schema.events).set({
+      type: typedType,
+      requires_confirmation: typedType !== 'personal',
+      reminder_config: reminderConfig,
+      updated_at: new Date(),
+    }).where(eq(schema.events.id, eventId));
+
+    await sendEventConfirmation(eventId, user, message.cycle_id ?? null);
+
+    logger.info({ eventId, newType, userId: user.id }, 'button-reply: tipo seleccionado, confirmación enviada');
+    await db.update(schema.inboundMessages).set({ processed_at: new Date() }).where(eq(schema.inboundMessages.id, messageId));
+    return NextResponse.json({ eventId, newType, confirmationSent: true });
   }
 
   // ─── Acciones futuras (A5, A7) — stub ─────────────────────────────────────
